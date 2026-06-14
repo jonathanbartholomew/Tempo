@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  --color-gray-950: #0a0e1a;
+  --color-gray-900: #111827;
+  --color-gray-800: #1c2436;
+  --color-gray-700: #2a3447;
+}
+
+.dark body {
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37, 99, 235, 0.12), transparent);
+}
+
+.glow-card {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.08), 0 8px 30px -10px rgba(37, 99, 235, 0.25);
+}
+
+.dark .glow-card {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), 0 8px 30px -8px rgba(37, 99, 235, 0.35);
+}
