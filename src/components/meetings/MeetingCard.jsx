@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Trash2, Bell, BellOff, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatDateLong } from '../../utils/helpers';
+import { formatDateLong, formatTime } from '../../utils/helpers';
 
-export default function MeetingCard({ meeting, job, onDelete }) {
+export default function MeetingCard({ meeting, job, onDelete, timeFormat }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2" style={{ borderLeftColor: job?.color || '#9ca3af', borderLeftWidth: 4 }}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{formatDateLong(meeting.date)} · {meeting.time}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{formatDateLong(meeting.date)} · {formatTime(meeting.time, timeFormat)}</p>
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">{meeting.title}</h3>
         </div>
         <button onClick={() => onDelete(meeting.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors flex-shrink-0">

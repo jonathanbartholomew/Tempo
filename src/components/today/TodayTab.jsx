@@ -19,6 +19,7 @@ import MonthCalendar from "../schedule/MonthCalendar";
 import {
   getTodayString,
   formatDateLong,
+  formatTime,
   getJob,
   getLevelInfo,
   shiftDate,
@@ -42,10 +43,15 @@ export default function TodayTab({
   onAddTask,
   onToggleTask,
   onDeleteTask,
+  onEditTask,
+  onReorderTasks,
   onGoToMeetings,
   onHideEvent,
+  timeFormat,
 }) {
   const [showCompleted, setShowCompleted] = useState(true);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const today = getTodayString();
   const [viewDate, setViewDate] = useState(today);
   const isToday = viewDate === today;
@@ -55,8 +61,38 @@ export default function TodayTab({
 
   const timedTasks = todaysTasks.filter((t) => t.time);
   const untimedTasks = todaysTasks.filter((t) => !t.time);
-  const pendingUntimed = untimedTasks.filter((t) => !t.done);
+  const pendingUntimed = untimedTasks
+    .filter((t) => !t.done)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const completedUntimed = untimedTasks.filter((t) => t.done);
+
+  function handleDragStart(index) {
+    setDragIndex(index);
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }
+
+  function handleDrop(index) {
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...pendingUntimed];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(index, 0, moved);
+    onReorderTasks(reordered.map((t) => t.id));
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }
 
   const todaysMeetings = meetings.filter((m) => m.date === viewDate);
 
@@ -225,6 +261,8 @@ export default function TodayTab({
                     job={getJob(jobs, item.data.jobId)}
                     onToggle={onToggleTask}
                     onDelete={onDeleteTask}
+                    onEdit={onEditTask}
+                    timeFormat={timeFormat}
                   />
                 );
               }
@@ -242,7 +280,7 @@ export default function TodayTab({
                   >
                     <Clock size={16} className="text-gray-400 flex-shrink-0" />
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {meeting.time}
+                      {formatTime(meeting.time, timeFormat)}
                     </span>
                     <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">
                       {meeting.title}
@@ -272,7 +310,7 @@ export default function TodayTab({
                     className="text-gray-400 flex-shrink-0"
                   />
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {event.time}
+                    {formatTime(event.time, timeFormat)}
                   </span>
                   <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">
                     {event.title}
@@ -298,14 +336,31 @@ export default function TodayTab({
               );
             })}
 
-            {pendingUntimed.map((task) => (
-              <TaskRow
+            {pendingUntimed.map((task, index) => (
+              <div
                 key={task.id}
-                task={task}
-                job={getJob(jobs, task.jobId)}
-                onToggle={onToggleTask}
-                onDelete={onDeleteTask}
-              />
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={() => handleDrop(index)}
+                className={
+                  dragOverIndex === index && dragIndex !== null && dragIndex !== index
+                    ? "rounded-xl ring-2 ring-blue-400"
+                    : ""
+                }
+              >
+                <TaskRow
+                  task={task}
+                  job={getJob(jobs, task.jobId)}
+                  onToggle={onToggleTask}
+                  onDelete={onDeleteTask}
+                  onEdit={onEditTask}
+                  timeFormat={timeFormat}
+                  dragHandleProps={{
+                    draggable: true,
+                    onDragStart: () => handleDragStart(index),
+                    onDragEnd: handleDragEnd,
+                  }}
+                />
+              </div>
             ))}
 
             {completedUntimed.length > 0 && (
@@ -329,6 +384,8 @@ export default function TodayTab({
                       job={getJob(jobs, task.jobId)}
                       onToggle={onToggleTask}
                       onDelete={onDeleteTask}
+                      onEdit={onEditTask}
+                      timeFormat={timeFormat}
                     />
                   ))}
               </div>

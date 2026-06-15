@@ -5,7 +5,7 @@ import QuickAdd from '../today/QuickAdd';
 import AIPlanImport from '../today/AIPlanImport';
 import { getJob, getTodayString, formatDateLong } from '../../utils/helpers';
 
-export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onToggleTask, onDeleteTask }) {
+export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onToggleTask, onDeleteTask, onEditTask, timeFormat }) {
   const [addDate, setAddDate] = useState(getTodayString());
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -41,7 +41,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
       {overdue.length > 0 && (
         <Section title="Overdue">
           {overdue.map((task) => (
-            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} extra={formatDateLong(task.date)} />
+            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} onEdit={onEditTask} timeFormat={timeFormat} extra={formatDateLong(task.date)} />
           ))}
         </Section>
       )}
@@ -51,7 +51,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
           <p className="text-sm text-gray-400 dark:text-gray-500 italic">Nothing for today.</p>
         ) : (
           todayTasks.map((task) => (
-            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} />
+            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} onEdit={onEditTask} timeFormat={timeFormat} />
           ))
         )}
       </Section>
@@ -61,7 +61,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
           <p className="text-sm text-gray-400 dark:text-gray-500 italic">Nothing scheduled ahead.</p>
         ) : (
           upcoming.map((task) => (
-            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} extra={formatDateLong(task.date)} />
+            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} onEdit={onEditTask} timeFormat={timeFormat} extra={formatDateLong(task.date)} />
           ))
         )}
       </Section>
@@ -69,7 +69,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
       {noDate.length > 0 && (
         <Section title="Anytime">
           {noDate.map((task) => (
-            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} />
+            <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} onEdit={onEditTask} timeFormat={timeFormat} />
           ))}
         </Section>
       )}
@@ -86,7 +86,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
           {showCompleted && (
             <div className="space-y-2">
               {completed.map((task) => (
-                <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} extra={task.date ? formatDateLong(task.date) : null} />
+                <TaskRow key={task.id} task={task} job={getJob(jobs, task.jobId)} onToggle={onToggleTask} onDelete={onDeleteTask} onEdit={onEditTask} timeFormat={timeFormat} extra={task.date ? formatDateLong(task.date) : null} />
               ))}
             </div>
           )}

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { toDateKey } from '../utils/helpers';
+import { DEFAULT_TIMEZONE, getDateKeyInTimezone, getTimeInTimezone } from '../utils/helpers';
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
-export function useGoogleCalendar(sources) {
+export function useGoogleCalendar(sources, timezone = DEFAULT_TIMEZONE) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -57,7 +57,7 @@ export function useGoogleCalendar(sources) {
               return [];
             }
             const data = await res.json();
-            return (data.items || []).map((item) => mapEvent(item, source)).filter(Boolean);
+            return (data.items || []).map((item) => mapEvent(item, source, timezone)).filter(Boolean);
           } catch (err) {
             console.error(`[useGoogleCalendar] network error for ${source.email || source.id}`, err);
             errors.push({ email: source.email || source.id, reason: 'network' });
@@ -73,7 +73,7 @@ export function useGoogleCalendar(sources) {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourcesKey]);
+  }, [sourcesKey, timezone]);
 
   useEffect(() => {
     refresh();
@@ -82,7 +82,7 @@ export function useGoogleCalendar(sources) {
   return { events, loading, error, sourceErrors, refresh };
 }
 
-function mapEvent(item, source) {
+function mapEvent(item, source, timezone) {
   if (!item.start) return null;
 
   const selfAttendee = item.attendees?.find((a) => a.self);
@@ -104,12 +104,12 @@ function mapEvent(item, source) {
   }
 
   const startDate = new Date(item.start.dateTime);
-  const time = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+  const time = getTimeInTimezone(startDate, timezone);
   let duration = 60;
   if (item.end?.dateTime) {
     const endDate = new Date(item.end.dateTime);
     duration = Math.max(15, Math.round((endDate - startDate) / 60000));
   }
 
-  return { ...base, date: toDateKey(startDate), time, duration, allDay: false };
+  return { ...base, date: getDateKeyInTimezone(startDate, timezone), time, duration, allDay: false };
 }

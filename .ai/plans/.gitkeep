@@ -1,0 +1,20 @@
+# Plans Directory
+
+This folder contains implementation plans for features and migrations.
+
+## Naming Convention
+
+Use descriptive kebab-case names:
+- `feature-name-implementation.md`
+- `migration-name.md`
+- `refactor-description.md`
+
+## Plan Template
+
+Each plan should include:
+1. **Goal** - What we're trying to achieve
+2. **Current State** - How things work now
+3. **Proposed Changes** - Step-by-step implementation
+4. **Files Affected** - List of files to modify
+5. **Risks/Considerations** - Potential issues
+6. **Testing** - How to verify success

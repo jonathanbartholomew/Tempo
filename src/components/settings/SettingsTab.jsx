@@ -2,7 +2,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle } from 'lucide-react';
 import JobsTab from '../jobs/JobsTab';
 import MeetingsTab from '../meetings/MeetingsTab';
-import { CALENDAR_ACCOUNT_COLORS } from '../../utils/helpers';
+import { CALENDAR_ACCOUNT_COLORS, TIMEZONES, TIME_FORMATS } from '../../utils/helpers';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
@@ -28,6 +28,10 @@ export default function SettingsTab({
   meetings,
   onAddMeeting,
   onDeleteMeeting,
+  timezone,
+  onSetTimezone,
+  timeFormat,
+  onSetTimeFormat,
 }) {
   const connectCalendar = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -83,6 +87,45 @@ export default function SettingsTab({
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           Switch to {theme === 'dark' ? 'light' : 'dark'} mode
         </button>
+      </div>
+
+      {/* Timezone */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Timezone</h2>
+        <div className="space-y-1">
+          <label htmlFor="timezone-select" className="text-sm text-gray-600 dark:text-gray-400">
+            Calendar event times are shown in this timezone
+          </label>
+          <select
+            id="timezone-select"
+            value={timezone}
+            onChange={(e) => onSetTimezone(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {TIMEZONES.map((tz) => (
+              <option key={tz.value} value={tz.value}>
+                {tz.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="time-format-select" className="text-sm text-gray-600 dark:text-gray-400">
+            Time format
+          </label>
+          <select
+            id="time-format-select"
+            value={timeFormat}
+            onChange={(e) => onSetTimeFormat(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {TIME_FORMATS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Connected Calendars */}
@@ -174,7 +217,7 @@ export default function SettingsTab({
 
       {/* Meetings */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={onAddMeeting} onDeleteMeeting={onDeleteMeeting} />
+        <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={onAddMeeting} onDeleteMeeting={onDeleteMeeting} timeFormat={timeFormat} />
       </div>
     </div>
   );

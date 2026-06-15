@@ -3,9 +3,9 @@ import { Plus, X, Trash2, Calendar, List, ChevronLeft, ChevronRight, EyeOff, Ale
 import TimeGrid from './TimeGrid';
 import MonthCalendar from './MonthCalendar';
 import TaskRow from '../today/TaskRow';
-import { PRIORITIES, MEETING_DURATIONS, getJob, getTodayString, formatDateLong, shiftDate } from '../../utils/helpers';
+import { PRIORITIES, MEETING_DURATIONS, getJob, getTodayString, formatDateLong, formatTime, shiftDate } from '../../utils/helpers';
 
-export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googleEventErrors, onAddTask, onAddMeeting, onToggleTask, onDeleteTask, onDeleteMeeting, onHideEvent, onGoToSettings }) {
+export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googleEventErrors, onAddTask, onAddMeeting, onToggleTask, onDeleteTask, onDeleteMeeting, onHideEvent, onGoToSettings, timeFormat }) {
   const [date, setDate] = useState(getTodayString());
   const [viewMode, setViewMode] = useState('day');
   const [showForm, setShowForm] = useState(false);
@@ -268,7 +268,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
         </div>
       )}
 
-      <TimeGrid date={date} meetings={meetings} jobs={jobs} googleEvents={googleEvents} onMeetingClick={setSelectedMeeting} onHideEvent={onHideEvent} />
+      <TimeGrid date={date} meetings={meetings} jobs={jobs} googleEvents={googleEvents} onMeetingClick={setSelectedMeeting} onHideEvent={onHideEvent} timeFormat={timeFormat} />
 
       {selectedMeeting && (
         <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-2">
@@ -278,7 +278,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
               <X size={18} />
             </button>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{selectedMeeting.time} · {selectedMeeting.duration} min</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{formatTime(selectedMeeting.time, timeFormat)} · {selectedMeeting.duration} min</p>
           {selectedMeeting.notes && <p className="text-sm text-gray-700 dark:text-gray-300">{selectedMeeting.notes}</p>}
           <button
             onClick={() => {
@@ -306,6 +306,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
                 job={getJob(jobs, task.jobId)}
                 onToggle={onToggleTask}
                 onDelete={onDeleteTask}
+                timeFormat={timeFormat}
               />
             ))}
           </div>

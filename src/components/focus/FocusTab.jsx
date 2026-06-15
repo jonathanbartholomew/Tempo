@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Timer } from 'lucide-react';
 import ProgressRing from '../today/ProgressRing';
 import ActivityChart from '../today/ActivityChart';
-import { getTodayString, getHistoryEntry } from '../../utils/helpers';
+import { useServerStorage } from '../../context/DataContext';
+import { STORAGE_KEYS, DEFAULT_FOCUS_SESSION, getTodayString, getHistoryEntry } from '../../utils/helpers';
 
 const WORK_OPTIONS = [15, 25, 45, 60];
 const BREAK_OPTIONS = [5, 10, 15, 20];
+const MAX_RECONCILE_CYCLES = 1000;
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
@@ -13,73 +15,97 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function nextSession(session, onLogFocus) {
+  const { mode, workMinutes, breakMinutes, sessionsCompleted } = session;
+  if (mode === 'work') {
+    onLogFocus(workMinutes);
+    return { ...session, mode: 'break', secondsLeft: breakMinutes * 60, sessionsCompleted: sessionsCompleted + 1 };
+  }
+  return { ...session, mode: 'work', secondsLeft: workMinutes * 60 };
+}
+
+// Catches up the timer for time that passed while this tab/component was unmounted.
+function reconcileElapsed(session, onLogFocus) {
+  if (!session.running || !session.updatedAt) return session;
+  let elapsed = Math.floor((Date.now() - session.updatedAt) / 1000);
+  if (elapsed <= 0) return { ...session, updatedAt: Date.now() };
+
+  let next = session;
+  for (let i = 0; i < MAX_RECONCILE_CYCLES && elapsed > 0; i++) {
+    if (elapsed < next.secondsLeft) {
+      next = { ...next, secondsLeft: next.secondsLeft - elapsed };
+      elapsed = 0;
+    } else {
+      elapsed -= next.secondsLeft;
+      next = nextSession(next, onLogFocus);
+    }
+  }
+  return { ...next, updatedAt: Date.now() };
+}
+
 export default function FocusTab({ stats, onLogFocus }) {
-  const [workMinutes, setWorkMinutes] = useState(25);
-  const [breakMinutes, setBreakMinutes] = useState(5);
-  const [mode, setMode] = useState('work');
-  const [secondsLeft, setSecondsLeft] = useState(workMinutes * 60);
-  const [running, setRunning] = useState(false);
-  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [session, setSession] = useServerStorage(STORAGE_KEYS.focusSession, DEFAULT_FOCUS_SESSION);
+  const { mode, workMinutes, breakMinutes, secondsLeft, running, sessionsCompleted } = session;
   const intervalRef = useRef(null);
 
-  const totalSeconds = (mode === 'work' ? workMinutes : breakMinutes) * 60;
+  // Reconcile time that passed while this tab was hidden/unmounted.
+  useEffect(() => {
+    setSession((prev) => reconcileElapsed(prev, onLogFocus));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!running) return;
     intervalRef.current = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          handleSessionEnd();
-          return 0;
+      setSession((prev) => {
+        if (prev.secondsLeft <= 1) {
+          return { ...nextSession(prev, onLogFocus), running: false, updatedAt: Date.now() };
         }
-        return s - 1;
+        return { ...prev, secondsLeft: prev.secondsLeft - 1, updatedAt: Date.now() };
       });
     }, 1000);
     return () => clearInterval(intervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, mode, workMinutes, breakMinutes]);
+  }, [running]);
 
-  function handleSessionEnd() {
-    setRunning(false);
-    if (mode === 'work') {
-      onLogFocus(workMinutes);
-      setSessionsCompleted((c) => c + 1);
-      setMode('break');
-      setSecondsLeft(breakMinutes * 60);
-    } else {
-      setMode('work');
-      setSecondsLeft(workMinutes * 60);
-    }
-  }
+  const totalSeconds = (mode === 'work' ? workMinutes : breakMinutes) * 60;
 
   function toggleRunning() {
-    setRunning((r) => !r);
+    setSession((prev) => ({ ...prev, running: !prev.running, updatedAt: Date.now() }));
   }
 
   function reset() {
-    setRunning(false);
-    setSecondsLeft((mode === 'work' ? workMinutes : breakMinutes) * 60);
+    setSession((prev) => ({
+      ...prev,
+      running: false,
+      secondsLeft: (prev.mode === 'work' ? prev.workMinutes : prev.breakMinutes) * 60,
+      updatedAt: Date.now(),
+    }));
   }
 
   function skip() {
-    setRunning(false);
-    if (mode === 'work') {
-      setMode('break');
-      setSecondsLeft(breakMinutes * 60);
-    } else {
-      setMode('work');
-      setSecondsLeft(workMinutes * 60);
-    }
+    setSession((prev) => {
+      if (prev.mode === 'work') {
+        return { ...prev, running: false, mode: 'break', secondsLeft: prev.breakMinutes * 60, updatedAt: Date.now() };
+      }
+      return { ...prev, running: false, mode: 'work', secondsLeft: prev.workMinutes * 60, updatedAt: Date.now() };
+    });
   }
 
   function changeWorkMinutes(value) {
-    setWorkMinutes(value);
-    if (mode === 'work' && !running) setSecondsLeft(value * 60);
+    setSession((prev) => ({
+      ...prev,
+      workMinutes: value,
+      secondsLeft: prev.mode === 'work' && !prev.running ? value * 60 : prev.secondsLeft,
+    }));
   }
 
   function changeBreakMinutes(value) {
-    setBreakMinutes(value);
-    if (mode === 'break' && !running) setSecondsLeft(value * 60);
+    setSession((prev) => ({
+      ...prev,
+      breakMinutes: value,
+      secondsLeft: prev.mode === 'break' && !prev.running ? value * 60 : prev.secondsLeft,
+    }));
   }
 
   const progress = 1 - secondsLeft / totalSeconds;

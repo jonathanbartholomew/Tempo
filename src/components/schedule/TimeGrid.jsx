@@ -1,5 +1,5 @@
 import { EyeOff } from 'lucide-react';
-import { getJob, getTodayString } from '../../utils/helpers';
+import { getJob, getTodayString, formatTime } from '../../utils/helpers';
 
 const ROW_HEIGHT = 44; // px per 30-minute slot
 const START_HOUR = 6; // 6 AM
@@ -14,10 +14,8 @@ function buildSlots() {
   return slots;
 }
 
-function formatSlotLabel({ hour, minute }) {
-  const period = hour < 12 ? 'AM' : 'PM';
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+function formatSlotLabel({ hour, minute }, timeFormat) {
+  return formatTime(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`, timeFormat);
 }
 
 function minutesFromGridStart(time) {
@@ -25,7 +23,7 @@ function minutesFromGridStart(time) {
   return (h - START_HOUR) * 60 + m;
 }
 
-export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeetingClick, onHideEvent }) {
+export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeetingClick, onHideEvent, timeFormat }) {
   const slots = buildSlots();
   const isToday = date === getTodayString();
   const now = new Date();
@@ -46,7 +44,7 @@ export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeeting
             style={{ height: ROW_HEIGHT }}
           >
             <div className="w-20 flex-shrink-0 flex items-center justify-end pr-3 text-xs text-gray-400 dark:text-gray-500 border-r border-gray-100 dark:border-gray-800">
-              {slot.minute === 0 ? formatSlotLabel(slot) : ''}
+              {slot.minute === 0 ? formatSlotLabel(slot, timeFormat) : ''}
             </div>
             <div className="flex-1" />
           </div>
@@ -70,7 +68,7 @@ export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeeting
                 className="block px-2 py-1 text-left text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="truncate font-semibold pr-5">{event.title}</div>
-                <div className="truncate opacity-70">{event.time} · {event.duration}m · {event.account}</div>
+                <div className="truncate opacity-70">{formatTime(event.time, timeFormat)} · {event.duration}m · {event.account}</div>
               </a>
               <button
                 onClick={() => onHideEvent?.(event.title)}
@@ -95,7 +93,7 @@ export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeeting
               style={{ top, height, backgroundColor: job?.color || '#6366f1' }}
             >
               <div className="truncate font-semibold">{meeting.title}</div>
-              <div className="truncate opacity-80">{meeting.time} · {meeting.duration}m</div>
+              <div className="truncate opacity-80">{formatTime(meeting.time, timeFormat)} · {meeting.duration}m</div>
             </button>
           );
         })}

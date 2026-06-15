@@ -8,7 +8,40 @@ export const STORAGE_KEYS = {
   auth: 'tempo_auth',
   calendarAccounts: 'tempo_calendar_accounts',
   hiddenEvents: 'tempo_hidden_calendar_events',
+  timezone: 'tempo_timezone',
+  timeFormat: 'tempo_time_format',
+  focusSession: 'tempo_focus_session',
 };
+
+export const DEFAULT_FOCUS_SESSION = {
+  mode: 'work',
+  workMinutes: 25,
+  breakMinutes: 5,
+  secondsLeft: 25 * 60,
+  running: false,
+  sessionsCompleted: 0,
+  updatedAt: null,
+};
+
+export const DEFAULT_TIME_FORMAT = '12h';
+
+export const TIME_FORMATS = [
+  { value: '12h', label: '12-hour (1:30 PM)' },
+  { value: '24h', label: '24-hour (13:30)' },
+];
+
+export const DEFAULT_TIMEZONE = 'America/New_York';
+
+export const TIMEZONES = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Phoenix', label: 'Arizona (MST, no DST)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
+  { value: 'UTC', label: 'UTC' },
+];
 
 export const CALENDAR_ACCOUNT_COLORS = ['#6b7280', '#0ea5e9', '#a855f7', '#f97316', '#10b981', '#ec4899'];
 
@@ -60,10 +93,43 @@ export function getTodayString() {
   return toDateKey(new Date());
 }
 
+export function getDateKeyInTimezone(date, timezone = DEFAULT_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
+export function getTimeInTimezone(date, timezone = DEFAULT_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const hour = lookup.hour === '24' ? '00' : lookup.hour;
+  return `${hour}:${lookup.minute}`;
+}
+
 export function shiftDate(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + days);
   return toDateKey(d);
+}
+
+export function formatTime(timeStr, format = DEFAULT_TIME_FORMAT) {
+  if (!timeStr) return timeStr;
+  if (format === '24h') return timeStr;
+  const [hourStr, minute] = timeStr.split(':');
+  const hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute} ${period}`;
 }
 
 export function formatDateLong(dateStr) {

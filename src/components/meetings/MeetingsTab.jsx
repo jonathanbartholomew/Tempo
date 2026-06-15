@@ -3,7 +3,7 @@ import { Plus, X } from 'lucide-react';
 import MeetingCard from './MeetingCard';
 import { MEETING_DURATIONS, REMINDER_LEAD_TIMES, getJob, getTodayString } from '../../utils/helpers';
 
-export default function MeetingsTab({ meetings, jobs, onAddMeeting, onDeleteMeeting }) {
+export default function MeetingsTab({ meetings, jobs, onAddMeeting, onDeleteMeeting, timeFormat }) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(getTodayString());
@@ -140,7 +140,7 @@ export default function MeetingsTab({ meetings, jobs, onAddMeeting, onDeleteMeet
         ) : (
           <div className="space-y-2">
             {upcoming.map((m) => (
-              <MeetingCard key={m.id} meeting={m} job={getJob(jobs, m.jobId)} onDelete={onDeleteMeeting} />
+              <MeetingCard key={m.id} meeting={m} job={getJob(jobs, m.jobId)} onDelete={onDeleteMeeting} timeFormat={timeFormat} />
             ))}
           </div>
         )}
@@ -153,7 +153,7 @@ export default function MeetingsTab({ meetings, jobs, onAddMeeting, onDeleteMeet
         ) : (
           <div className="space-y-2">
             {past.map((m) => (
-              <MeetingCard key={m.id} meeting={m} job={getJob(jobs, m.jobId)} onDelete={onDeleteMeeting} />
+              <MeetingCard key={m.id} meeting={m} job={getJob(jobs, m.jobId)} onDelete={onDeleteMeeting} timeFormat={timeFormat} />
             ))}
           </div>
         )}

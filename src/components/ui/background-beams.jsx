@@ -60,7 +60,7 @@ export const BackgroundBeams = memo(({ className }) => {
     PATHS.map(() => ({
       y2: `${93 + Math.random() * 8}%`,
       duration: Math.random() * 10 + 10,
-      delay: Math.random() * 10,
+      delay: Math.random() * 2,
     }))
   );
 

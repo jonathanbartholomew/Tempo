@@ -10,17 +10,20 @@ import FocusTab from './components/focus/FocusTab';
 import ProgressTab from './components/progress/ProgressTab';
 import AchievementsTab from './components/achievements/AchievementsTab';
 import SettingsTab from './components/settings/SettingsTab';
-import { useStorage } from './hooks/useStorage';
+import { BackgroundBeams } from './components/ui/background-beams';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
 import { useTheme } from './hooks/useTheme';
 import { useAuth } from './hooks/useAuth';
 import { useCalendarAccounts } from './hooks/useCalendarAccounts';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
+import { DataProvider, useServerStorage } from './context/DataContext';
 import {
   STORAGE_KEYS,
   CALENDAR_ACCOUNT_COLORS,
   DEFAULT_STATS,
+  DEFAULT_TIMEZONE,
+  DEFAULT_TIME_FORMAT,
   generateId,
   getTodayString,
   toDateKey,
@@ -29,14 +32,7 @@ import {
 } from './utils/helpers';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('today');
   const [showSignIn, setShowSignIn] = useState(false);
-  const [jobs, setJobs] = useStorage(STORAGE_KEYS.jobs, []);
-  const [tasks, setTasks] = useStorage(STORAGE_KEYS.tasks, []);
-  const [meetings, setMeetings] = useStorage(STORAGE_KEYS.meetings, []);
-  const [stats, setStats] = useStorage(STORAGE_KEYS.stats, DEFAULT_STATS);
-  const [earned, setEarned] = useStorage(STORAGE_KEYS.earned, []);
-  const [toasts, setToasts] = useState([]);
   const [theme, toggleTheme] = useTheme();
   const { auth, login, logout: authLogout, isCalendarConnected } = useAuth();
 
@@ -44,6 +40,39 @@ export default function App() {
     authLogout();
     setShowSignIn(false);
   }
+
+  if (!auth) {
+    return showSignIn ? (
+      <SignInScreen onLogin={login} onBack={() => setShowSignIn(false)} />
+    ) : (
+      <LoginScreen theme={theme} onGetStarted={() => setShowSignIn(true)} />
+    );
+  }
+
+  return (
+    <DataProvider auth={auth}>
+      <AppContent
+        theme={theme}
+        toggleTheme={toggleTheme}
+        auth={auth}
+        login={login}
+        logout={logout}
+        isCalendarConnected={isCalendarConnected}
+      />
+    </DataProvider>
+  );
+}
+
+function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnected }) {
+  const [activeTab, setActiveTab] = useState('today');
+  const [jobs, setJobs] = useServerStorage(STORAGE_KEYS.jobs, []);
+  const [tasks, setTasks] = useServerStorage(STORAGE_KEYS.tasks, []);
+  const [meetings, setMeetings] = useServerStorage(STORAGE_KEYS.meetings, []);
+  const [stats, setStats] = useServerStorage(STORAGE_KEYS.stats, DEFAULT_STATS);
+  const [earned, setEarned] = useServerStorage(STORAGE_KEYS.earned, []);
+  const [timezone, setTimezone] = useServerStorage(STORAGE_KEYS.timezone, DEFAULT_TIMEZONE);
+  const [timeFormat, setTimeFormat] = useServerStorage(STORAGE_KEYS.timeFormat, DEFAULT_TIME_FORMAT);
+  const [toasts, setToasts] = useState([]);
   const { accounts: calendarAccounts, addAccount: addCalendarAccount, removeAccount: removeCalendarAccount } = useCalendarAccounts();
 
   const connectedAccounts = useMemo(() => {
@@ -79,9 +108,9 @@ export default function App() {
     [connectedAccounts, accountColors]
   );
 
-  const { events: googleEvents, sourceErrors: googleEventErrors } = useGoogleCalendar(calendarSources);
+  const { events: googleEvents, sourceErrors: googleEventErrors } = useGoogleCalendar(calendarSources, timezone);
 
-  const [hiddenEventTitles, setHiddenEventTitles] = useStorage(STORAGE_KEYS.hiddenEvents, []);
+  const [hiddenEventTitles, setHiddenEventTitles] = useServerStorage(STORAGE_KEYS.hiddenEvents, []);
   const visibleGoogleEvents = useMemo(
     () => googleEvents.filter((e) => !hiddenEventTitles.includes(e.title)),
     [googleEvents, hiddenEventTitles]
@@ -133,6 +162,17 @@ export default function App() {
 
   function deleteTask(id) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function editTask(id, updates) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+  }
+
+  function reorderTasks(orderedIds) {
+    setTasks((prev) => {
+      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+      return prev.map((t) => (orderMap.has(t.id) ? { ...t, order: orderMap.get(t.id) } : t));
+    });
   }
 
   function toggleTask(id) {
@@ -261,16 +301,11 @@ export default function App() {
     }
   }, [stats.totalXp]);
 
-  if (!auth) {
-    return showSignIn ? (
-      <SignInScreen onLogin={login} onBack={() => setShowSignIn(false)} />
-    ) : (
-      <LoginScreen theme={theme} onGetStarted={() => setShowSignIn(true)} />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors md:pl-60">
+    <div className="min-h-screen transition-colors md:pl-60">
+      <div className="fixed inset-0 -z-10 overflow-hidden bg-gray-50 dark:bg-gray-950">
+        <BackgroundBeams className="absolute inset-0 h-full opacity-40 dark:opacity-30" />
+      </div>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} />
       <Toast toasts={toasts} />
 
@@ -285,8 +320,11 @@ export default function App() {
           onAddTask={addTask}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
+          onEditTask={editTask}
+          onReorderTasks={reorderTasks}
           onGoToMeetings={() => setActiveTab('calendar')}
           onHideEvent={hideCalendarEvent}
+          timeFormat={timeFormat}
         />
       )}
 
@@ -299,6 +337,8 @@ export default function App() {
           onAddTask={addTask}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
+          onEditTask={editTask}
+          timeFormat={timeFormat}
         />
       )}
 
@@ -316,6 +356,7 @@ export default function App() {
           onDeleteMeeting={deleteMeeting}
           onHideEvent={hideCalendarEvent}
           onGoToSettings={() => setActiveTab('settings')}
+          timeFormat={timeFormat}
         />
       )}
 
@@ -354,6 +395,10 @@ export default function App() {
           meetings={meetings}
           onAddMeeting={addMeeting}
           onDeleteMeeting={deleteMeeting}
+          timezone={timezone}
+          onSetTimezone={setTimezone}
+          timeFormat={timeFormat}
+          onSetTimeFormat={setTimeFormat}
         />
       )}
     </div>

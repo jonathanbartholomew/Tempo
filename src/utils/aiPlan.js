@@ -84,7 +84,12 @@ export function parsePlanText(text, jobs, defaultDate) {
 
   const findJobId = (name) => {
     if (!name) return null;
-    const job = jobs.find((j) => j.name.toLowerCase() === String(name).toLowerCase());
+    const raw = String(name).trim().toLowerCase();
+    const stripped = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const job = jobs.find((j) => {
+      const jobName = j.name.toLowerCase();
+      return jobName === raw || jobName === stripped;
+    });
     return job ? job.id : null;
   };
 
