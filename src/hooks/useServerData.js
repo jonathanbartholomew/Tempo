@@ -16,6 +16,7 @@ const MIGRATED_KEYS = [
 
 const MIGRATION_FLAG = 'tempo_server_migrated';
 const SAVE_DELAY_MS = 500;
+const MIN_LOADING_MS = 1500;
 
 export function useServerData(auth) {
   const [data, setData] = useState({});
@@ -28,6 +29,7 @@ export function useServerData(auth) {
     let cancelled = false;
 
     (async () => {
+      const startTime = Date.now();
       const remote = await apiFetch('/data', { accessToken });
       if (cancelled) return;
 
@@ -47,10 +49,14 @@ export function useServerData(auth) {
         localStorage.setItem(MIGRATION_FLAG, 'true');
       }
 
-      if (!cancelled) {
-        setData(remote);
-        setLoading(false);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_LOADING_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
       }
+      if (cancelled) return;
+
+      setData(remote);
+      setLoading(false);
     })();
 
     return () => {

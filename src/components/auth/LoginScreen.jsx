@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { CalendarDays, Sparkles, Trophy, Clock, Flame, CalendarPlus, Brain, PartyPopper, Copy, Upload, Rocket, Crown, Check } from 'lucide-react';
+import { CalendarDays, Sparkles, Trophy, Clock, CalendarPlus, Brain, PartyPopper, Check } from 'lucide-react';
 import logoLight from '../../assets/tempo-logo-trans.png';
 import logoDark from '../../assets/tempo-logo-dark-mode.png';
+import scheduleUnifiedImg from '../../assets/schedule-unified.png';
+import aiPlannerImg from '../../assets/ai-planner.png';
+import calendarsImg from '../../assets/calendars.png';
+import levelUpImg from '../../assets/level-up.png';
 import { BackgroundBeams } from '../ui/background-beams';
+import { GlowingEffect } from '../ui/glowing-effect';
 import { FlipWords } from '../ui/flip-words';
 import { motion } from 'motion/react';
 import {
@@ -19,26 +24,26 @@ const SLIDES = [
   {
     icon: Clock,
     title: "Today's schedule, unified",
-    description: "Tasks, meetings, and Google Calendar events merge into one chronological timeline — so you always know what's next.",
-    mockup: <TodayMockup />,
+    description: "Tasks, meetings, and Google Calendar events merge into one chronological timeline — so you always know what's next.",
+    bgImage: scheduleUnifiedImg,
   },
   {
     icon: Sparkles,
     title: 'AI Day Planner',
-    description: 'Generate a tailored daily plan with Claude and import it straight into Tempo — no extra API costs on top of your subscription.',
-    mockup: <AIMockup />,
+    description: 'Generate a tailored daily plan with Claude and import it straight into Tempo — no extra API costs on top of your subscription.',
+    bgImage: aiPlannerImg,
   },
   {
     icon: CalendarDays,
     title: 'Every calendar, one view',
     description: 'Connect multiple Google accounts and see every meeting and event from each account, color-coded and in sync.',
-    mockup: <CalendarMockup />,
+    bgImage: calendarsImg,
   },
   {
     icon: Trophy,
     title: 'Level up your routine',
-    description: 'Earn XP for completed tasks, build streaks, and unlock achievements as you stay on top of your day.',
-    mockup: <AchievementsMockup />,
+    description: "Other planners just hand you a list. Tempo turns finishing it into XP, streaks, and achievements — the motivation most planners leave out.",
+    bgImage: levelUpImg,
   },
 ];
 
@@ -50,7 +55,7 @@ const STEPS = [
   {
     icon: CalendarPlus,
     title: 'Connect your calendars',
-    description: 'Sign in with Google and link as many calendar accounts as you need — work, personal, freelance.',
+    description: 'Sign in with Google and link as many calendar accounts as you need — work, personal, freelance.',
   },
   {
     icon: Brain,
@@ -60,7 +65,7 @@ const STEPS = [
   {
     icon: PartyPopper,
     title: 'Stay in tempo',
-    description: 'Work through your unified timeline, earn XP for what you finish, and watch your streak grow day after day.',
+    description: 'Work through your unified timeline, earn XP for what you finish, build streaks, and stay focused with the built-in timer — momentum that compounds day after day.',
   },
 ];
 
@@ -280,7 +285,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
             Get things <FlipWords words={['done', 'organized', 'scheduled']} className="text-blue-400 px-0" />
           </h1>
           <p className="mt-4 max-w-xl text-base sm:text-lg text-white/80 drop-shadow">
-            Tasks, meetings, and Google Calendar — together in one simple, gamified daily planner with
+            Tasks, meetings, and Google Calendar — together in one simple, gamified daily planner with
             AI-assisted planning built right in.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -354,34 +359,71 @@ export default function LoginScreen({ theme, onGetStarted }) {
             <div className="w-screen h-full flex-shrink-0 flex flex-col items-center justify-center gap-6 px-6 py-10">
               <div className="max-w-2xl w-full text-center">
                 <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
-                  Everything you need, in one place
+                  Everything you need, <span className="text-blue-400">IN ONE PLACE</span>
                 </h1>
                 <p className="mt-3 text-sm sm:text-base text-gray-500 dark:text-gray-400">
-                  Scroll on to see how Tempo keeps your tasks, meetings, and calendar in sync — with
+                  Scroll on to see how Tempo keeps your tasks, meetings, and calendar in sync — with
                   AI-assisted planning built right in.
                 </p>
               </div>
-              <div className="w-full max-w-2xl aspect-[3/2] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-xl">
-                <img
-                  src="/tempo-landing-background.png"
-                  alt="Tempo app preview"
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-full max-w-2xl">
+                <GlowingEffect active={Math.round(hProgress * (TOTAL_PANELS - 1)) === 0} />
+                <div className="relative aspect-[3/2] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-xl">
+                  <img
+                    src="/tempo-landing-background.png"
+                    alt="Tempo app preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
             </div>
 
-            {SLIDES.map(({ icon: Icon, title, description, mockup }) => (
+            {SLIDES.map(({ icon: Icon, title, description, mockup, bgImage }, i) => (
               <div key={title} className="w-screen h-full flex-shrink-0 flex items-center justify-center px-6">
-                <div className="max-w-4xl w-full grid md:grid-cols-2 gap-10 items-center">
-                  <div className="text-left">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 mb-4">
-                      <Icon size={24} />
+                {bgImage ? (
+                  <div className="relative max-w-4xl w-full">
+                    <GlowingEffect active={Math.round(hProgress * (TOTAL_PANELS - 1)) === i + 1} />
+                    <div
+                      className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-xl bg-cover bg-center flex items-start"
+                      style={{ backgroundImage: `url(${bgImage})` }}
+                    >
+                      <div className="max-w-md pt-10 sm:pt-14 pl-8 sm:pl-12 pr-6 text-left">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 mb-4">
+                          <Icon size={24} />
+                        </div>
+                        <h3 className="text-2xl sm:text-3xl font-bold text-white">
+                          {title === "Today's schedule, unified" ? (
+                            <>
+                              Today&apos;s schedule, <span className="text-blue-400">UNIFIED</span>
+                            </>
+                          ) : title === 'Every calendar, one view' ? (
+                            <>
+                              Every calendar, <span className="text-blue-400">ONE VIEW</span>
+                            </>
+                          ) : title === 'Level up your routine' ? (
+                            <>
+                              Level up your <span className="text-blue-400">ROUTINE</span>
+                            </>
+                          ) : (
+                            title
+                          )}
+                        </h3>
+                        <p className="mt-3 text-gray-300">{description}</p>
+                      </div>
                     </div>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h3>
-                    <p className="mt-3 text-gray-500 dark:text-gray-400">{description}</p>
                   </div>
-                  <div className="flex justify-center">{mockup}</div>
-                </div>
+                ) : (
+                  <div className="max-w-4xl w-full grid md:grid-cols-2 gap-10 items-center">
+                    <div className="text-left">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 mb-4">
+                        <Icon size={24} />
+                      </div>
+                      <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+                      <p className="mt-3 text-gray-500 dark:text-gray-400">{description}</p>
+                    </div>
+                    <div className="flex justify-center">{mockup}</div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -408,7 +450,9 @@ export default function LoginScreen({ theme, onGetStarted }) {
        <SectionGlow />
        <div className="max-w-5xl mx-auto px-4 py-16">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">How Tempo works</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+            How Tempo <span className="text-blue-400">WORKS</span>
+          </h2>
           <p className="mt-2 text-sm sm:text-base text-gray-500 dark:text-gray-400">
             Three steps to a calmer, more organized day.
           </p>
@@ -439,7 +483,9 @@ export default function LoginScreen({ theme, onGetStarted }) {
         <SectionGlow />
         <div className="max-w-5xl mx-auto px-4 py-16">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Simple pricing, no surprises</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Simple pricing, <span className="text-blue-400">NO SURPRISES</span>
+            </h2>
             <p className="mt-2 text-sm sm:text-base text-gray-500 dark:text-gray-400">
               Start for free. Upgrade when you need more.
             </p>
@@ -556,275 +602,3 @@ function SectionGlow() {
   );
 }
 
-const MOCKUP_WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-function TodayMockup() {
-  const items = [
-    { time: '9:00 AM', title: 'Morning workout', color: '#10b981' },
-    { time: '10:30 AM', title: 'Team standup', color: '#2563eb' },
-    { time: '1:00 PM', title: 'Design review', color: '#8b5cf6' },
-  ];
-  const today = 14;
-  const eventDays = [3, 8, 14, 19, 23, 27];
-
-  return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-4 text-left">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Today's Plan</h3>
-        <div className="space-y-2">
-          {items.map((item) => (
-            <div
-              key={item.title}
-              className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-800"
-              style={{ borderLeftColor: item.color, borderLeftWidth: 4 }}
-            >
-              <span className="text-xs text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{item.time}</span>
-              <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{item.title}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">June 2026</p>
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 mb-1">
-          {MOCKUP_WEEKDAYS.map((wd, i) => (
-            <div key={i}>{wd}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: 30 }).map((_, i) => {
-            const day = i + 1;
-            const isToday = day === today;
-            const hasEvent = eventDays.includes(day);
-            return (
-              <div
-                key={i}
-                className={`relative h-6 rounded-md flex items-center justify-center text-[10px] ${
-                  isToday
-                    ? 'bg-blue-600 text-white font-semibold'
-                    : 'text-gray-600 dark:text-gray-300'
-                }`}
-              >
-                {day}
-                {hasEvent && !isToday && (
-                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AIMockup() {
-  const tasks = ['Finish RFP draft', 'Reply to client emails', 'Prep design review slides', '30 min walk'];
-  return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-3 text-left">
-      <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
-          <Sparkles size={16} className="text-purple-500" />
-          AI Day Planner
-        </h3>
-        <span className="text-xs text-gray-400 dark:text-gray-500">Plan for: Tue, Jun 16</span>
-      </div>
-
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 w-fit">
-        <Copy size={13} />
-        Copy prompt
-      </div>
-
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 font-mono text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">
-        {'{ "tasks": ['}<br />
-        {'  { "title": "Finish RFP draft", "time": "9:00" },'}<br />
-        {'  { "title": "Reply to client emails" },'}<br />
-        {'  ...'}<br />
-        {']}'}
-      </div>
-
-      <div className="space-y-1.5">
-        {tasks.map((t) => (
-          <div key={t} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <span className="w-4 h-4 rounded-full border-2 border-blue-500 flex-shrink-0" />
-            {t}
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-2 pt-1">
-        <span className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-semibold">Import Plan</span>
-        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300">
-          <Upload size={12} />
-          Upload file
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function CalendarMockup() {
-  const accounts = [
-    { name: 'Work', color: '#2563eb' },
-    { name: 'GiftHealth', color: '#10b981' },
-    { name: 'Inventive', color: '#f59e0b' },
-  ];
-  const today = 14;
-  const events = { 3: 1, 8: 2, 14: 0, 19: 1, 23: 2, 27: 0 };
-  const dayEvents = [
-    { time: '9:00 AM', title: 'Client kickoff', color: '#2563eb' },
-    { time: '1:30 PM', title: 'Site visit', color: '#10b981' },
-  ];
-
-  return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-3 text-left">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Schedule</h3>
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 text-[10px] font-medium">
-          <span className="px-2 py-1 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm">Day</span>
-          <span className="px-2 py-1 rounded-lg text-gray-400 dark:text-gray-500">Month</span>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {accounts.map((a) => (
-          <span
-            key={a.name}
-            className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-white"
-            style={{ backgroundColor: a.color }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
-            {a.name}
-          </span>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 mb-1">
-        {MOCKUP_WEEKDAYS.map((wd, i) => (
-          <div key={i}>{wd}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: 30 }).map((_, i) => {
-          const day = i + 1;
-          const isToday = day === today;
-          const accountIndex = events[day];
-          return (
-            <div
-              key={i}
-              className={`relative h-6 rounded-md flex items-center justify-center text-[10px] ${
-                isToday ? 'bg-blue-600 text-white font-semibold' : 'text-gray-600 dark:text-gray-300'
-              }`}
-            >
-              {day}
-              {accountIndex !== undefined && (
-                <span
-                  className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
-                    isToday ? 'bg-white' : ''
-                  }`}
-                  style={!isToday ? { backgroundColor: accounts[accountIndex].color } : undefined}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="space-y-1.5 pt-1">
-        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">June 14</p>
-        {dayEvents.map((e) => (
-          <div
-            key={e.title}
-            className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-800"
-            style={{ borderLeftColor: e.color, borderLeftWidth: 4 }}
-          >
-            <span className="text-xs text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{e.time}</span>
-            <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{e.title}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AchievementsMockup() {
-  const stats = [
-    { label: 'Tasks Done', value: 128 },
-    { label: 'Day Streak', value: 12 },
-    { label: 'Longest Streak', value: 24 },
-    { label: 'Jobs Tracked', value: 3 },
-  ];
-  const badges = [
-    { icon: Flame, title: 'On Fire', description: '7-day streak', xp: 50, earned: true },
-    { icon: Rocket, title: 'Early Bird', description: 'Complete a task before 9am', xp: 25, earned: true },
-    { icon: Crown, title: 'Centurion', description: 'Complete 100 tasks', xp: 100, earned: false },
-  ];
-
-  return (
-    <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-4 space-y-3 text-left">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Current Level</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">Level 7</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Total XP</p>
-          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">2,450</p>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>650 / 1000 XP</span>
-          <span>Level 8</span>
-        </div>
-        <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-          <div className="h-full w-2/3 bg-gradient-to-r from-blue-400 to-blue-600" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2">
-        {stats.map((s) => (
-          <div key={s.label} className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
-            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{s.value}</p>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        {badges.map((b) => (
-          <div
-            key={b.title}
-            className={`rounded-xl border p-2.5 flex items-center gap-3 ${
-              b.earned ? 'border-yellow-200 dark:border-yellow-500/30' : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50'
-            }`}
-          >
-            <div
-              className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
-                b.earned ? 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600'
-              }`}
-            >
-              <b.icon size={16} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className={`text-sm font-semibold ${b.earned ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>{b.title}</p>
-                {b.earned && (
-                  <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 px-1.5 py-0.5 rounded-full">
-                    Earned
-                  </span>
-                )}
-              </div>
-              <p className={`text-xs ${b.earned ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600'}`}>{b.description}</p>
-            </div>
-            <span className={`text-xs font-semibold flex-shrink-0 ${b.earned ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-600'}`}>
-              +{b.xp} XP
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
