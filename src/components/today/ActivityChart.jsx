@@ -13,8 +13,9 @@ export default function ActivityChart({ history = {}, metric = 'xp', days: dayCo
 
   const max = Math.max(1, ...days.map((d) => d.value));
   const padding = 8;
+  const labelHeight = showLabels ? 16 : 0;
   const innerWidth = width - padding * 2;
-  const innerHeight = height - padding * 2;
+  const innerHeight = height - padding - labelHeight;
   const stepX = innerWidth / (days.length - 1);
 
   const points = days.map((d, i) => {
@@ -27,7 +28,7 @@ export default function ActivityChart({ history = {}, metric = 'xp', days: dayCo
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding + innerHeight} L ${points[0].x} ${padding + innerHeight} Z`;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" className="overflow-visible">
       <defs>
         <linearGradient id="activityFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />

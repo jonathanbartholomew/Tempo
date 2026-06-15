@@ -1,16 +1,52 @@
-# React + Vite
+# Tempo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Tempo is a gamified daily planner that brings your tasks, meetings, and Google
+Calendar into one place, with AI-assisted planning built in.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Today** — daily overview with your plan, upcoming events, and quick-add
+  for new tasks.
+- **Tasks** — unified task management across jobs/projects, with priorities
+  and due dates.
+- **Schedule** — calendar view (day/month) that merges your tasks, meetings,
+  and synced Google Calendar events.
+- **Focus** — Pomodoro-style focus timer with session logging.
+- **Progress** — stats dashboard tracking XP, streaks, and activity history.
+- **Achievements** — unlockable badges and bonus XP for hitting milestones
+  (streaks, early starts, task counts, etc.).
+- **Settings** — manage your account, connected Google Calendar accounts,
+  jobs/projects, meetings, and appearance (light/dark theme).
 
-## React Compiler
+Signing in with Google connects your calendar so events show up alongside
+your tasks, and lets you add additional calendar accounts per job/project.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Landing page
 
-## Expanding the ESLint configuration
+The signed-out experience is a marketing landing page with a resizable
+navbar, animated hero, a horizontal-scrolling feature showcase, a "how it
+works" section, and a final call-to-action.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tech stack
+
+- [React 19](https://react.dev/) + [Vite](https://vite.dev/)
+- [Tailwind CSS v4](https://tailwindcss.com/)
+- [motion](https://motion.dev/) for animations
+- [lucide-react](https://lucide.dev/) for icons
+- [@react-oauth/google](https://github.com/MomenSherif/react-oauth) for
+  Google sign-in and Calendar access
+
+## Development
+
+```sh
+npm install
+npm run dev
+```
+
+Other scripts:
+
+```sh
+npm run build    # production build
+npm run preview  # preview the production build
+npm run lint     # run ESLint
+```

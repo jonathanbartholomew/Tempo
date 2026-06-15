@@ -9,6 +9,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 .dark {
   --color-gray-950: #0a0e1a;
   --color-gray-900: #111827;
@@ -26,4 +30,22 @@ body {
 
 .dark .glow-card {
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), 0 8px 30px -8px rgba(37, 99, 235, 0.35);
+}
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -30px) scale(1.1); }
+}
+
+@keyframes drift-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-50px, 30px) scale(1.15); }
+}
+
+.animate-drift {
+  animation: drift 22s ease-in-out infinite;
+}
+
+.animate-drift-reverse {
+  animation: drift-reverse 28s ease-in-out infinite;
 }

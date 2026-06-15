@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
 import LoginScreen from './components/auth/LoginScreen';
+import SignInScreen from './components/auth/SignInScreen';
 import TodayTab from './components/today/TodayTab';
 import TasksTab from './components/tasks/TasksTab';
 import ScheduleTab from './components/schedule/ScheduleTab';
@@ -29,6 +30,7 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('today');
+  const [showSignIn, setShowSignIn] = useState(false);
   const [jobs, setJobs] = useStorage(STORAGE_KEYS.jobs, []);
   const [tasks, setTasks] = useStorage(STORAGE_KEYS.tasks, []);
   const [meetings, setMeetings] = useStorage(STORAGE_KEYS.meetings, []);
@@ -36,7 +38,12 @@ export default function App() {
   const [earned, setEarned] = useStorage(STORAGE_KEYS.earned, []);
   const [toasts, setToasts] = useState([]);
   const [theme, toggleTheme] = useTheme();
-  const { auth, login, logout, isCalendarConnected } = useAuth();
+  const { auth, login, logout: authLogout, isCalendarConnected } = useAuth();
+
+  function logout() {
+    authLogout();
+    setShowSignIn(false);
+  }
   const { accounts: calendarAccounts, addAccount: addCalendarAccount, removeAccount: removeCalendarAccount } = useCalendarAccounts();
 
   const connectedAccounts = useMemo(() => {
@@ -255,7 +262,11 @@ export default function App() {
   }, [stats.totalXp]);
 
   if (!auth) {
-    return <LoginScreen theme={theme} onLogin={login} />;
+    return showSignIn ? (
+      <SignInScreen onLogin={login} onBack={() => setShowSignIn(false)} />
+    ) : (
+      <LoginScreen theme={theme} onGetStarted={() => setShowSignIn(true)} />
+    );
   }
 
   return (
