@@ -3,7 +3,7 @@ import { Sparkles, Copy, Check, Upload, X } from 'lucide-react';
 import { buildPromptTemplate, parsePlanText } from '../../utils/aiPlan';
 import { getTodayString } from '../../utils/helpers';
 
-export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date, onAddTask, onAddMeeting }) {
+export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date, onAddTask }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [planDate, setPlanDate] = useState(date || getTodayString());
@@ -35,10 +35,9 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
     setError('');
     setSuccess('');
     try {
-      const { tasks: newTasks, meetings: newMeetings } = parsePlanText(planText, jobs, planDate);
+      const { tasks: newTasks } = parsePlanText(planText, jobs, planDate);
       newTasks.forEach((t) => onAddTask(t));
-      newMeetings.forEach((m) => onAddMeeting(m));
-      setSuccess(`Imported ${newTasks.length} task${newTasks.length === 1 ? '' : 's'} and ${newMeetings.length} meeting${newMeetings.length === 1 ? '' : 's'}.`);
+      setSuccess(`Imported ${newTasks.length} task${newTasks.length === 1 ? '' : 's'}.`);
       setPlanText('');
     } catch (err) {
       setError(err.message);

@@ -52,9 +52,6 @@ Based on a conversation with me about what I need to get done, create a day plan
 {
   "tasks": [
     { "title": "Task title", "priority": "low|normal|high|urgent", "date": "${targetDate}", "time": "HH:MM or null", "job": "Job name or null" }
-  ],
-  "meetings": [
-    { "title": "Meeting title", "date": "${targetDate}", "time": "HH:MM", "duration": 30, "job": "Job name or null", "notes": "optional notes" }
   ]
 }
 \`\`\`
@@ -62,8 +59,8 @@ Based on a conversation with me about what I need to get done, create a day plan
 - "job" must match one of my job names above exactly, or be null if it's not work-related.
 - "priority" must be one of: low, normal, high, urgent.
 - "date" should be in YYYY-MM-DD format, defaulting to ${targetDate} unless I specify another day.
-- Use "meetings" for fixed-time commitments with another person, and "tasks" (optionally with a "time" if it should happen at a specific time) for personal work items.
-- Don't repeat my existing tasks/meetings/calendar events above in your output — only include new things we discuss, planned around them.
+- Only output "tasks" — personal work items, optionally with a "time" if they should happen at a specific time. My meetings and calendar events are already synced from Google Calendar, so don't create meetings; just plan tasks around the ones listed above.
+- Don't repeat my existing tasks/meetings/calendar events above in your output — only include new tasks we discuss, planned around them.
 - Now ask me what I need to get done today, then output the JSON plan once we're done discussing.`;
 }
 
@@ -101,20 +98,9 @@ export function parsePlanText(text, jobs, defaultDate) {
     jobId: findJobId(t.job),
   })).filter((t) => t.title);
 
-  const meetings = (data.meetings || []).map((m) => ({
-    title: String(m.title || '').trim(),
-    date: m.date || fallbackDate,
-    time: m.time || '09:00',
-    duration: Number(m.duration) || 30,
-    jobId: findJobId(m.job),
-    notes: m.notes || '',
-    reminder: false,
-    reminderMins: 15,
-  })).filter((m) => m.title);
-
-  if (tasks.length === 0 && meetings.length === 0) {
-    throw new Error('No tasks or meetings found in that JSON.');
+  if (tasks.length === 0) {
+    throw new Error('No tasks found in that JSON.');
   }
 
-  return { tasks, meetings };
+  return { tasks };
 }

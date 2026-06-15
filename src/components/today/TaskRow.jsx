@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { getPriority } from '../../utils/helpers';
 
-export default function TaskRow({ task, job, onToggle, onDelete }) {
+export default function TaskRow({ task, job, onToggle, onDelete, extra }) {
   const priority = getPriority(task.priority);
 
   return (
@@ -35,6 +35,10 @@ export default function TaskRow({ task, job, onToggle, onDelete }) {
       <span className={`flex-1 text-sm ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
         {task.title}
       </span>
+
+      {extra && (
+        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{extra}</span>
+      )}
 
       {job && (
         <span

@@ -79,6 +79,11 @@ export function getJob(jobs, jobId) {
   return jobs.find((j) => j.id === jobId) || null;
 }
 
+export function getHistoryEntry(stats, date) {
+  const entry = (stats.history || {})[date];
+  return { completed: 0, xp: 0, focusMinutes: 0, ...entry };
+}
+
 export async function fetchGoogleProfile(accessToken) {
   const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },

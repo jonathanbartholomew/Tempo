@@ -7,15 +7,25 @@ export function useGoogleCalendar(sources) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sourceErrors, setSourceErrors] = useState([]);
 
   const sourcesKey = (sources || []).map((s) => `${s.id}:${s.accessToken}`).join('|');
 
   const refresh = useCallback(async () => {
-    const validSources = (sources || []).filter((s) => s.accessToken && s.expiresAt > Date.now());
+    const allSources = sources || [];
+    const expired = allSources.filter((s) => !s.accessToken || s.expiresAt <= Date.now());
+    const validSources = allSources.filter((s) => s.accessToken && s.expiresAt > Date.now());
+
+    if (expired.length > 0) {
+      console.warn('[useGoogleCalendar] skipping expired calendar source(s):', expired.map((s) => s.email || s.id));
+    }
+
     if (validSources.length === 0) {
       setEvents([]);
+      setSourceErrors(expired.map((s) => ({ email: s.email || s.id, reason: 'expired' })));
       return;
     }
+
     setLoading(true);
     setError(null);
     try {
@@ -32,16 +42,30 @@ export function useGoogleCalendar(sources) {
         maxResults: '50',
       });
 
+      const errors = expired.map((s) => ({ email: s.email || s.id, reason: 'expired' }));
+
       const results = await Promise.all(
         validSources.map(async (source) => {
-          const res = await fetch(`${CALENDAR_API}?${params}`, {
-            headers: { Authorization: `Bearer ${source.accessToken}` },
-          });
-          if (!res.ok) return [];
-          const data = await res.json();
-          return (data.items || []).map((item) => mapEvent(item, source)).filter(Boolean);
+          try {
+            const res = await fetch(`${CALENDAR_API}?${params}`, {
+              headers: { Authorization: `Bearer ${source.accessToken}` },
+            });
+            if (!res.ok) {
+              const body = await res.text();
+              console.error(`[useGoogleCalendar] fetch failed for ${source.email || source.id}: ${res.status} ${res.statusText}`, body);
+              errors.push({ email: source.email || source.id, reason: `http_${res.status}` });
+              return [];
+            }
+            const data = await res.json();
+            return (data.items || []).map((item) => mapEvent(item, source)).filter(Boolean);
+          } catch (err) {
+            console.error(`[useGoogleCalendar] network error for ${source.email || source.id}`, err);
+            errors.push({ email: source.email || source.id, reason: 'network' });
+            return [];
+          }
         })
       );
+      setSourceErrors(errors);
       setEvents(results.flat());
     } catch (err) {
       setError(err.message);
@@ -55,7 +79,7 @@ export function useGoogleCalendar(sources) {
     refresh();
   }, [refresh]);
 
-  return { events, loading, error, refresh };
+  return { events, loading, error, sourceErrors, refresh };
 }
 
 function mapEvent(item, source) {

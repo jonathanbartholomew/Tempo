@@ -2,16 +2,16 @@ import { getTodayString, shiftDate } from '../../utils/helpers';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function ActivityChart({ history = {}, width = 280, height = 90 }) {
+export default function ActivityChart({ history = {}, metric = 'xp', days: dayCount = 7, width = 280, height = 90, showLabels = true }) {
   const today = getTodayString();
   const days = [];
-  for (let i = 6; i >= 0; i--) {
+  for (let i = dayCount - 1; i >= 0; i--) {
     const date = shiftDate(today, -i);
-    const entry = history[date] || { completed: 0, xp: 0 };
-    days.push({ date, xp: entry.xp });
+    const entry = history[date] || {};
+    days.push({ date, value: entry[metric] || 0 });
   }
 
-  const max = Math.max(1, ...days.map((d) => d.xp));
+  const max = Math.max(1, ...days.map((d) => d.value));
   const padding = 8;
   const innerWidth = width - padding * 2;
   const innerHeight = height - padding * 2;
@@ -19,7 +19,7 @@ export default function ActivityChart({ history = {}, width = 280, height = 90 }
 
   const points = days.map((d, i) => {
     const x = padding + i * stepX;
-    const y = padding + innerHeight - (d.xp / max) * innerHeight;
+    const y = padding + innerHeight - (d.value / max) * innerHeight;
     return { x, y, ...d };
   });
 
@@ -39,7 +39,7 @@ export default function ActivityChart({ history = {}, width = 280, height = 90 }
       {points.map((p, i) => (
         <circle key={p.date} cx={p.x} cy={p.y} r={i === points.length - 1 ? 3.5 : 2.5} fill="#3b82f6" />
       ))}
-      {points.map((p, i) => (
+      {showLabels && points.map((p, i) => (
         <text key={p.date} x={p.x} y={height - 2} textAnchor="middle" fontSize="9" fill="currentColor" className="text-gray-400 dark:text-gray-500">
           {DAY_LABELS[new Date(`${p.date}T00:00:00`).getDay()]}
         </text>

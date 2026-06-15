@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import Navbar from './components/layout/Navbar';
+import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
 import LoginScreen from './components/auth/LoginScreen';
 import TodayTab from './components/today/TodayTab';
+import TasksTab from './components/tasks/TasksTab';
 import ScheduleTab from './components/schedule/ScheduleTab';
-import JobsTab from './components/jobs/JobsTab';
-import MeetingsTab from './components/meetings/MeetingsTab';
+import FocusTab from './components/focus/FocusTab';
+import ProgressTab from './components/progress/ProgressTab';
 import AchievementsTab from './components/achievements/AchievementsTab';
+import SettingsTab from './components/settings/SettingsTab';
 import { useStorage } from './hooks/useStorage';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -70,7 +72,7 @@ export default function App() {
     [connectedAccounts, accountColors]
   );
 
-  const { events: googleEvents } = useGoogleCalendar(calendarSources);
+  const { events: googleEvents, sourceErrors: googleEventErrors } = useGoogleCalendar(calendarSources);
 
   const [hiddenEventTitles, setHiddenEventTitles] = useStorage(STORAGE_KEYS.hiddenEvents, []);
   const visibleGoogleEvents = useMemo(
@@ -202,6 +204,25 @@ export default function App() {
     setMeetings((prev) => prev.map((m) => (m.jobId === id ? { ...m, jobId: null } : m)));
   }
 
+  // --- Focus ---
+  function logFocusSession(minutes) {
+    setStats((prev) => {
+      const today = getTodayString();
+      const history = prev.history || {};
+      const todayEntry = history[today] || { completed: 0, xp: 0, focusMinutes: 0 };
+      return {
+        ...prev,
+        history: {
+          ...history,
+          [today]: {
+            ...todayEntry,
+            focusMinutes: (todayEntry.focusMinutes || 0) + minutes,
+          },
+        },
+      };
+    });
+  }
+
   // --- Meetings ---
   function addMeeting(data) {
     setMeetings((prev) => [...prev, { id: generateId(), ...data }]);
@@ -238,22 +259,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        streak={stats.streak}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        user={auth.user}
-        onLogout={logout}
-        calendarAccounts={calendarAccounts}
-        onAddCalendarAccount={addCalendarAccount}
-        onRemoveCalendarAccount={removeCalendarAccount}
-        accountColors={accountColors}
-        hiddenEventTitles={hiddenEventTitles}
-        onUnhideEvent={unhideCalendarEvent}
-      />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors md:pl-60">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} />
       <Toast toasts={toasts} />
 
       {activeTab === 'today' && (
@@ -263,40 +270,80 @@ export default function App() {
           meetings={meetings}
           googleEvents={visibleGoogleEvents}
           stats={stats}
+          user={auth.user}
           onAddTask={addTask}
-          onAddMeeting={addMeeting}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
-          onGoToMeetings={() => setActiveTab('meetings')}
+          onGoToMeetings={() => setActiveTab('calendar')}
           onHideEvent={hideCalendarEvent}
         />
       )}
 
-      {activeTab === 'schedule' && (
+      {activeTab === 'tasks' && (
+        <TasksTab
+          tasks={tasks}
+          jobs={jobs}
+          meetings={meetings}
+          googleEvents={visibleGoogleEvents}
+          onAddTask={addTask}
+          onToggleTask={toggleTask}
+          onDeleteTask={deleteTask}
+        />
+      )}
+
+      {activeTab === 'calendar' && (
         <ScheduleTab
           tasks={tasks}
           jobs={jobs}
           meetings={meetings}
           googleEvents={visibleGoogleEvents}
+          googleEventErrors={googleEventErrors}
           onAddTask={addTask}
           onAddMeeting={addMeeting}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
           onDeleteMeeting={deleteMeeting}
           onHideEvent={hideCalendarEvent}
+          onGoToSettings={() => setActiveTab('settings')}
         />
       )}
 
-      {activeTab === 'jobs' && (
-        <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={addJob} onRemoveJob={removeJob} />
+      {activeTab === 'focus' && (
+        <FocusTab stats={stats} onLogFocus={logFocusSession} />
       )}
 
-      {activeTab === 'meetings' && (
-        <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={addMeeting} onDeleteMeeting={deleteMeeting} />
+      {activeTab === 'progress' && (
+        <ProgressTab stats={stats} />
       )}
 
       {activeTab === 'achievements' && (
         <AchievementsTab stats={stats} jobs={jobs} earned={earned} />
+      )}
+
+      {activeTab === 'settings' && (
+        <SettingsTab
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          user={auth.user}
+          onLogout={logout}
+          calendarAccounts={calendarAccounts}
+          onAddCalendarAccount={addCalendarAccount}
+          onRemoveCalendarAccount={removeCalendarAccount}
+          accountColors={accountColors}
+          hiddenEventTitles={hiddenEventTitles}
+          onUnhideEvent={unhideCalendarEvent}
+          primaryExpiresAt={auth.expiresAt}
+          onReconnectPrimary={login}
+          googleEventErrors={googleEventErrors}
+          jobs={jobs}
+          tasks={tasks}
+          connectedAccounts={connectedAccounts}
+          onAddJob={addJob}
+          onRemoveJob={removeJob}
+          meetings={meetings}
+          onAddMeeting={addMeeting}
+          onDeleteMeeting={deleteMeeting}
+        />
       )}
     </div>
   );
