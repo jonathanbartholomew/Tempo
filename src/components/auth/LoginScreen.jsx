@@ -48,8 +48,7 @@ const SLIDES = [
 
 const TOTAL_PANELS = SLIDES.length + 1;
 
-const BEAM_PATH =
-  'M0,40 C80,20 160,55 240,45 C340,32 380,20 440,35 C520,55 560,65 620,45 C700,18 780,8 860,28 C940,48 1000,58 1060,40 C1110,25 1160,28 1200,35';
+const STRING_POSITIONS = [4, 16, 28, 40, 50, 60, 72, 84, 96];
 
 const STEPS = [
   {
@@ -81,19 +80,76 @@ export default function LoginScreen({ theme, onLogin }) {
   const horizontalRef = useRef(null);
 
   useEffect(() => {
+    const prevU = { current: 0 };
+    const snapping = { current: false };
+    let snapEndTimeout;
+    let initialized = false;
+
+    function snapTo(target) {
+      snapping.current = true;
+      window.scrollTo({ top: target, behavior: 'smooth' });
+      clearTimeout(snapEndTimeout);
+      snapEndTimeout = setTimeout(() => {
+        snapping.current = false;
+      }, 600);
+    }
+
     function onScroll() {
       const el = horizontalRef.current;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const total = rect.height - window.innerHeight;
-        if (total > 0) {
-          setHProgress(Math.min(1, Math.max(0, -rect.top / total)));
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const total = rect.height - window.innerHeight;
+      if (total <= 0) return;
+
+      const rawProgress = -rect.top / total;
+      setHProgress(Math.min(1, Math.max(0, rawProgress)));
+
+      const rawU = rawProgress * (TOTAL_PANELS - 1);
+      const sectionTop = window.scrollY + rect.top;
+
+      if (!initialized) {
+        prevU.current = rawU;
+        initialized = true;
+        return;
+      }
+
+      const delta = rawU - prevU.current;
+
+      if (!snapping.current && delta !== 0) {
+        const lastEdge = TOTAL_PANELS - 1;
+        if (delta < 0 && prevU.current > -0.3 && rawU <= -0.3) {
+          // exiting before the first panel - continue scrolling up into the previous section
+          snapTo(sectionTop - window.innerHeight);
+        } else if (delta > 0 && prevU.current < lastEdge + 0.3 && rawU >= lastEdge + 0.3) {
+          // exiting after the last panel - continue scrolling down into the next section
+          snapTo(sectionTop + rect.height);
+        } else {
+          for (let i = 0; i < TOTAL_PANELS - 1; i++) {
+            const forwardThreshold = i + 0.3;
+            const backwardThreshold = i + 0.7;
+            let target = null;
+            if (delta > 0 && prevU.current < forwardThreshold && rawU >= forwardThreshold) {
+              target = (i + 1) / (TOTAL_PANELS - 1);
+            } else if (delta < 0 && prevU.current > backwardThreshold && rawU <= backwardThreshold) {
+              target = i / (TOTAL_PANELS - 1);
+            }
+            if (target !== null) {
+              snapTo(sectionTop + target * total);
+              break;
+            }
+          }
         }
       }
+
+      prevU.current = rawU;
     }
+
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      clearTimeout(snapEndTimeout);
+    };
   }, []);
 
   const googleLogin = useGoogleLogin({
@@ -159,6 +215,7 @@ export default function LoginScreen({ theme, onLogin }) {
       <div className="relative w-full overflow-hidden bg-gradient-to-b from-slate-950 via-blue-950 to-slate-900">
         <BackgroundBeams className="absolute inset-0 h-full" />
         <div className="relative z-10 max-w-5xl mx-auto px-4 pt-16 pb-16 sm:pt-24 sm:pb-24 flex flex-col items-center text-center">
+          <img src={logoDark} alt="Tempo" className="h-32 sm:h-44 w-auto mb-6 drop-shadow-lg" />
           <h1 className="text-4xl sm:text-6xl font-bold text-white drop-shadow-lg max-w-3xl leading-tight">
             Plan your time.
             <br />
@@ -184,72 +241,55 @@ export default function LoginScreen({ theme, onLogin }) {
               See how it works
             </a>
           </div>
-
-          <div className="mt-14 sm:mt-20 w-full max-w-2xl aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-            <img
-              src="/tempo-landing-background.png"
-              alt="Tempo app preview"
-              className="w-full h-full object-contain"
-            />
-          </div>
         </div>
       </div>
 
       {/* Horizontal scroll feature showcase */}
       <section id="features" ref={horizontalRef} className="relative" style={{ height: `${TOTAL_PANELS * 100}vh` }}>
         <div className="sticky top-0 h-screen overflow-hidden flex items-center bg-white dark:bg-gray-950">
-          {/* Tracing beam */}
-          <div className="absolute top-16 sm:top-24 left-0 right-0 z-20 h-20 sm:h-28 pointer-events-none">
+          {/* Background guitar-string lines + scroll-tracing laser */}
+          <div className="absolute inset-0 z-0 pointer-events-none">
             <svg viewBox="0 0 1200 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-              <defs>
-                <linearGradient id="beam-gradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
-                  <stop offset="50%" stopColor="#60a5fa" stopOpacity="1" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d={BEAM_PATH}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                vectorEffect="non-scaling-stroke"
-                className="text-gray-200 dark:text-gray-800"
-              />
-              <motion.path
-                d={BEAM_PATH}
-                fill="none"
-                stroke="url(#beam-gradient)"
-                strokeWidth="4"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-                style={{ filter: 'blur(6px)' }}
-                initial={false}
-                animate={{ pathLength: hProgress }}
-                transition={{ type: 'spring', stiffness: 100, damping: 25 }}
-              />
-              <motion.path
-                d={BEAM_PATH}
-                fill="none"
-                stroke="url(#beam-gradient)"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-                initial={false}
-                animate={{ pathLength: hProgress }}
-                transition={{ type: 'spring', stiffness: 100, damping: 25 }}
-              />
+              {STRING_POSITIONS.map((y) => {
+                const d = `M0,${y} L1200,${y}`;
+                const isMiddle = y === 40 || y === 50 || y === 60;
+                return (
+                  <g key={y}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      strokeOpacity={isMiddle ? 0.1 : 0.25}
+                      vectorEffect="non-scaling-stroke"
+                      className="text-gray-100 dark:text-gray-900"
+                    />
+                    <motion.path
+                      d={d}
+                      fill="none"
+                      stroke="#60a5fa"
+                      strokeWidth="2"
+                      strokeOpacity={isMiddle ? 0.07 : 0.18}
+                      strokeLinecap="round"
+                      vectorEffect="non-scaling-stroke"
+                      initial={false}
+                      animate={{ pathLength: hProgress }}
+                      transition={{ type: 'tween', duration: 0.2 }}
+                    />
+                  </g>
+                );
+              })}
             </svg>
           </div>
 
           <div
-            className="relative flex h-full"
+            className="relative z-10 flex h-full"
             style={{
               width: `${TOTAL_PANELS * 100}vw`,
               transform: `translateX(-${hProgress * (TOTAL_PANELS - 1) * 100}vw)`,
             }}
           >
-            <div className="w-screen h-full flex-shrink-0 flex flex-col items-center justify-center gap-6 px-6">
+            <div className="w-screen h-full flex-shrink-0 flex flex-col items-center justify-center gap-6 px-6 py-10">
               <div className="max-w-2xl w-full text-center">
                 <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
                   Everything you need, in one place
@@ -258,6 +298,13 @@ export default function LoginScreen({ theme, onLogin }) {
                   Scroll on to see how Tempo keeps your tasks, meetings, and calendar in sync — with
                   AI-assisted planning built right in.
                 </p>
+              </div>
+              <div className="w-full max-w-2xl aspect-[3/2] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-xl">
+                <img
+                  src="/tempo-landing-background.png"
+                  alt="Tempo app preview"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
 

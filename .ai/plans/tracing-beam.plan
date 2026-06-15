@@ -1,0 +1,18 @@
+# Tracing beam lines - follow-up
+
+Tomorrow: fix the issue with the tracing beam lines in the horizontal
+scroll "features" section.
+
+As shown in the screenshot, when you reach the end of the horizontal
+scroll and start scrolling down vertically into the next section, there
+is a large empty gap at the right end of the lines (the blue
+`pathLength` fill doesn't reach the right edge before the section ends).
+Need to investigate why the lines don't fully fill out by the time the
+horizontal scroll completes and adjust the `hProgress` -> `pathLength`
+mapping or the line geometry accordingly.
+
+## Other things to work on tomorrow
+
+- Login screen: revisit/polish.
+- Dashboard cleanup: nav and spacing in the content view.
+- Landing page: add more sections to the home page.
