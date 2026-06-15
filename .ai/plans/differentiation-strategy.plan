@@ -1,0 +1,139 @@
+# Differentiation roadmap: monday.com / Productive.io / Motion
+
+Context: competitive research vs. monday.com (team Work OS), Productive.io (agency
+profitability), and Motion (AI auto-scheduling) showed Tempo's wedge is personal
+gamification + AI day-planning + multi-job calendar unification at solo-friendly
+pricing — none of the three combine those. Below are 4 pillars, ordered
+lightest-effort-first. Each can be picked up independently.
+
+---
+
+## 1. Landing page copy refresh (anti-Motion positioning)
+
+**Why**: Motion/Productive reviewers explicitly complain about *no* gamification
+and (for Motion) *no* focus/pomodoro tooling. Tempo already has both — just isn't
+saying so.
+
+**Files**: `src/components/auth/LoginScreen.jsx`
+
+- Update `SLIDES` (the "Level up your routine" slide) and/or add a new slide that
+  frames XP/streaks/Focus timer explicitly as motivation competitors lack —
+  e.g. "Other planners just list your tasks. Tempo makes finishing them feel good."
+- Update `STEPS` step 3 ("Stay in tempo") copy similarly if needed.
+- No new components/data — copy + maybe icon swap only.
+
+**Effort**: trivial, copy-only.
+
+---
+
+## 2. Per-job hourly rate + earnings estimate (Productive-lite)
+
+**Why**: Productive's standout is time → money visibility, but it's priced/scoped
+for agencies. Tempo already tracks daily focus minutes per day
+(`stats.history[date].focusMinutes`) and has a `jobs` list — just needs a rate
+field and a derived display.
+
+**Data model**:
+- Add optional `hourlyRate` (number, nullable) to each job object in `jobs`
+  (`STORAGE_KEYS.jobs`, synced via `useServerStorage` already — no backend schema
+  change needed since `jobs` is stored as a JSON blob in `user_data`).
+
+**Files to touch**:
+- `src/components/jobs/JobsTab.jsx` — add an hourly-rate `<input type="number">`
+  to the add-job form, pass `hourlyRate: rate ? Number(rate) : null` to `onAddJob`.
+- `src/App.jsx` — `addJob` already spreads passed fields into the new job object;
+  just ensure `hourlyRate` is included (it will be via the object spread if
+  `JobsTab` passes it — verify `addJob({ name, type, color, googleAccountEmail })`
+  destructure includes `hourlyRate` too).
+- `src/components/jobs/JobCard.jsx` — display rate if set (e.g. "$75/hr").
+- **Focus-time-per-job tracking**: currently `logFocusSession(minutes)` in
+  `src/App.jsx` records minutes into `stats.history[date].focusMinutes` with no
+  job association. To compute *per-job* earnings, `FocusTab` needs to pass a
+  `jobId` through to `logFocusSession`, and `history[date]` needs a per-job
+  breakdown, e.g. `history[date].focusByJob = { [jobId]: minutes }`. This is the
+  one structural change in this pillar — keep it additive (old `focusMinutes`
+  total stays for the existing chart).
+  - `src/components/focus/FocusTab.jsx` — add a job picker (reuse `jobs` prop,
+    already passed into the tab via `App.jsx`'s `FocusTab` render — currently only
+    `stats` and `onLogFocus` are passed, so add `jobs` prop there too).
+  - `src/App.jsx` `logFocusSession(minutes, jobId)` — update `history[today]` to
+    also bump `focusByJob[jobId]`.
+- `src/components/progress/ProgressTab.jsx` — new card: "Estimated Earnings"
+  showing, per job with a rate set, `(focusByJob[jobId] minutes / 60) * hourlyRate`
+  summed over the visible history range (reuse the existing 7-day window logic
+  from `ActivityChart`/`history`).
+
+**Effort**: small-medium — one structural addition (`focusByJob` in history +
+job picker in Focus tab), everything else additive UI.
+
+---
+
+## 3. Kanban/board view toggle for Tasks (monday-lite)
+
+**Why**: monday's visual board is its best-loved feature but its complexity/cost
+is the top complaint for solo users. Tempo can offer a lightweight "visual"
+alternative to the current list view without becoming project-management
+software.
+
+**Files**:
+- `src/components/tasks/TasksTab.jsx` — add a view-mode toggle (List / Board) in
+  the header, persisted via a simple `useState` (or a new lightweight
+  `useServerStorage(STORAGE_KEYS.taskViewMode, 'list')` if persistence across
+  sessions is wanted).
+- New component `src/components/tasks/TasksBoard.jsx` — three columns (To do /
+  In progress / Done) rendering `TaskRow`-style cards grouped by `jobId` color
+  (reuse `getJob(jobs, task.jobId)` and existing job color from
+  `src/utils/helpers.js`).
+  - "In progress" needs a new task field, e.g. `task.status` (`'todo' |
+    'in_progress' | 'done'`), defaulting existing tasks to `'todo'`/`'done'`
+    based on current `done` boolean (derive, don't migrate data — `done: true` →
+    Done column, `done: false` → To do column unless `status === 'in_progress'`).
+  - Drag-and-drop between columns updates `task.status` (and `done` for the Done
+    column, reusing existing `onToggleTask`/`onEditTask`).
+- Reuse existing drag-and-drop pattern if one already exists for `reorderTasks`
+  (check `src/components/today/TaskRow.jsx` / `TodayTab.jsx` for any DnD library
+  already in use before adding a new dependency).
+
+**Effort**: medium — new component + one new task field (`status`), but no
+backend/schema changes (tasks already a JSON blob).
+
+---
+
+## 4. AI Day Planner: re-plan & task-chunking prompts (Motion-lite)
+
+**Why**: Motion's core draw is AI auto-scheduling/re-planning and breaking big
+tasks into auto-placed chunks — at a $29-49/mo premium with a closed ecosystem.
+Tempo's copy-prompt/import-JSON flow (`src/utils/aiPlan.js`) can mimic the *value*
+without live AI billing.
+
+**Files**: `src/utils/aiPlan.js`, `src/components/today/AIPlanImport.jsx`
+
+- **Re-plan mode**: add a second prompt builder, e.g.
+  `buildRePlanPromptTemplate({ jobs, tasks, meetings, googleEvents, date, now })`
+  that includes *remaining* (not-yet-done) tasks/meetings for the rest of the day
+  relative to current time, and asks Claude to re-sequence/re-time them given
+  what's already been completed and the current time. Surface this as a "Re-plan
+  my day" button in `AIPlanImport.jsx` alongside the existing "Plan my day" entry
+  point — same import flow (`parsePlanText`), so editing/done tasks aren't
+  duplicated (existing tasks for `targetDate` are already excluded from the
+  prompt's "existing tasks" list — verify re-plan prompt also excludes completed
+  tasks specifically, not just by date).
+- **Task chunking**: extend `buildPromptTemplate` (or add a per-task "Break this
+  down" action) — when invoked for a single large task, generate a focused prompt
+  asking Claude to split it into 3-5 sub-tasks with estimated durations, output
+  in the same `{ "tasks": [...] }` JSON schema so `parsePlanText` needs no changes.
+  Could live as a small action on `TaskRow` (e.g. "Break into steps" button that
+  opens `AIPlanImport`-style copy/paste modal pre-filled with the chunking prompt
+  for that one task).
+
+**Effort**: medium — mostly new prompt-template functions + UI entry points;
+reuses existing `parsePlanText`/import flow, so no new data model.
+
+---
+
+## Suggested order
+
+1. Pillar 1 (copy) → 2. Pillar 2 (earnings card) → 3. Pillar 3 (Kanban toggle) →
+4. Pillar 4 (AI re-plan/chunking). Each should get a quick design check before
+coding (especially #2's `focusByJob` history shape and #3's new `task.status`
+field, since both touch shared data shapes).
