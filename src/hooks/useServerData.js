@@ -29,34 +29,39 @@ export function useServerData(auth) {
     let cancelled = false;
 
     (async () => {
-      const startTime = Date.now();
-      const remote = await apiFetch('/data', { accessToken });
-      if (cancelled) return;
+      try {
+        const startTime = Date.now();
+        const remote = await apiFetch('/data', { accessToken });
+        if (cancelled) return;
 
-      if (!localStorage.getItem(MIGRATION_FLAG)) {
-        for (const key of MIGRATED_KEYS) {
-          if (key in remote) continue;
-          const local = localStorage.getItem(key);
-          if (local == null) continue;
-          try {
-            const value = JSON.parse(local);
-            await apiFetch(`/data/${key}`, { method: 'PUT', accessToken, body: { value } });
-            remote[key] = value;
-          } catch {
-            // skip unparseable local values
+        if (!localStorage.getItem(MIGRATION_FLAG)) {
+          for (const key of MIGRATED_KEYS) {
+            if (key in remote) continue;
+            const local = localStorage.getItem(key);
+            if (local == null) continue;
+            try {
+              const value = JSON.parse(local);
+              await apiFetch(`/data/${key}`, { method: 'PUT', accessToken, body: { value } });
+              remote[key] = value;
+            } catch {
+              // skip unparseable local values
+            }
           }
+          localStorage.setItem(MIGRATION_FLAG, 'true');
         }
-        localStorage.setItem(MIGRATION_FLAG, 'true');
-      }
 
-      const elapsed = Date.now() - startTime;
-      if (elapsed < MIN_LOADING_MS) {
-        await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
-      }
-      if (cancelled) return;
+        const elapsed = Date.now() - startTime;
+        if (elapsed < MIN_LOADING_MS) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
+        }
+        if (cancelled) return;
 
-      setData(remote);
-      setLoading(false);
+        setData(remote);
+      } catch {
+        // fetch failed (expired token, server down) — fall through with empty data
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
 
     return () => {

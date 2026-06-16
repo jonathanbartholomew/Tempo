@@ -10,7 +10,7 @@ import FocusTab from './components/focus/FocusTab';
 import ProgressTab from './components/progress/ProgressTab';
 import AchievementsTab from './components/achievements/AchievementsTab';
 import SettingsTab from './components/settings/SettingsTab';
-import { BackgroundBeams } from './components/ui/background-beams';
+import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
 import { useTheme } from './hooks/useTheme';
@@ -41,7 +41,7 @@ export default function App() {
     setShowSignIn(false);
   }
 
-  if (!auth) {
+  if (!auth || auth.expiresAt <= Date.now()) {
     return showSignIn ? (
       <SignInScreen onLogin={login} onBack={() => setShowSignIn(false)} />
     ) : (
@@ -252,11 +252,12 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   }
 
   // --- Focus ---
-  function logFocusSession(minutes) {
+  function logFocusSession(minutes, jobId) {
     setStats((prev) => {
       const today = getTodayString();
       const history = prev.history || {};
-      const todayEntry = history[today] || { completed: 0, xp: 0, focusMinutes: 0 };
+      const todayEntry = history[today] || { completed: 0, xp: 0, focusMinutes: 0, focusByJob: {} };
+      const focusByJob = todayEntry.focusByJob || {};
       return {
         ...prev,
         history: {
@@ -264,6 +265,9 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           [today]: {
             ...todayEntry,
             focusMinutes: (todayEntry.focusMinutes || 0) + minutes,
+            focusByJob: jobId
+              ? { ...focusByJob, [jobId]: (focusByJob[jobId] || 0) + minutes }
+              : focusByJob,
           },
         },
       };
@@ -304,7 +308,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   return (
     <div className="min-h-screen transition-colors md:pl-60">
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gray-50 dark:bg-gray-950">
-        <BackgroundBeams className="absolute inset-0 h-full opacity-40 dark:opacity-30" />
+        <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', opacity: 0.1 }} />
       </div>
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} />
       <Toast toasts={toasts} />
@@ -361,7 +365,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       )}
 
       {activeTab === 'focus' && (
-        <FocusTab stats={stats} onLogFocus={logFocusSession} />
+        <FocusTab stats={stats} jobs={jobs} onLogFocus={logFocusSession} />
       )}
 
       {activeTab === 'progress' && (

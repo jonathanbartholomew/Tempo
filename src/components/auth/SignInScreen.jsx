@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { ArrowLeft } from 'lucide-react';
 import logoDark from '../../assets/tempo-logo-dark-mode.png';
-import { BackgroundBeams } from '../ui/background-beams';
+import heroBgImg from '../../assets/hero-background.jpg';
 import { GoogleIcon } from '../ui/google-icon';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -26,8 +26,7 @@ export default function SignInScreen({ onLogin, onBack }) {
   return (
     <div className="min-h-screen flex bg-gray-950">
       {/* Left: branding panel with tracing beams */}
-      <div className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950 via-blue-950 to-slate-900">
-        <BackgroundBeams className="absolute inset-0 h-full scale-150" />
+      <div className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%' }}>
         <button onClick={onBack} className="relative z-10">
           <img src={logoDark} alt="Tempo" className="h-64 w-auto drop-shadow-lg" />
         </button>

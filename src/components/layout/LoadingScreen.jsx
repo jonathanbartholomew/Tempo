@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { BackgroundBeams } from '../ui/background-beams';
 import { LoaderFive } from '../ui/loader';
 
 const PHRASES = [
@@ -13,7 +12,7 @@ export default function LoadingScreen() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50 dark:bg-gray-950">
-      <BackgroundBeams className="absolute inset-0 h-full opacity-40 dark:opacity-30" />
+      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-3xl pointer-events-none" />
       <LoaderFive text={phrase} className="relative z-10" />
     </div>
   );

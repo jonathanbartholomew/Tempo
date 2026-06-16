@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Timer } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Timer, Briefcase } from 'lucide-react';
 import ProgressRing from '../today/ProgressRing';
 import ActivityChart from '../today/ActivityChart';
 import { useServerStorage } from '../../context/DataContext';
-import { STORAGE_KEYS, DEFAULT_FOCUS_SESSION, getTodayString, getHistoryEntry } from '../../utils/helpers';
+import { STORAGE_KEYS, DEFAULT_FOCUS_SESSION, getTodayString, getHistoryEntry, shiftDate } from '../../utils/helpers';
 
 const WORK_OPTIONS = [15, 25, 45, 60];
 const BREAK_OPTIONS = [5, 10, 15, 20];
@@ -16,9 +16,9 @@ function formatTime(seconds) {
 }
 
 function nextSession(session, onLogFocus) {
-  const { mode, workMinutes, breakMinutes, sessionsCompleted } = session;
+  const { mode, workMinutes, breakMinutes, sessionsCompleted, jobId } = session;
   if (mode === 'work') {
-    onLogFocus(workMinutes);
+    onLogFocus(workMinutes, jobId);
     return { ...session, mode: 'break', secondsLeft: breakMinutes * 60, sessionsCompleted: sessionsCompleted + 1 };
   }
   return { ...session, mode: 'work', secondsLeft: workMinutes * 60 };
@@ -43,9 +43,9 @@ function reconcileElapsed(session, onLogFocus) {
   return { ...next, updatedAt: Date.now() };
 }
 
-export default function FocusTab({ stats, onLogFocus }) {
+export default function FocusTab({ stats, jobs = [], onLogFocus }) {
   const [session, setSession] = useServerStorage(STORAGE_KEYS.focusSession, DEFAULT_FOCUS_SESSION);
-  const { mode, workMinutes, breakMinutes, secondsLeft, running, sessionsCompleted } = session;
+  const { mode, workMinutes, breakMinutes, secondsLeft, running, sessionsCompleted, jobId } = session;
   const intervalRef = useRef(null);
 
   // Reconcile time that passed while this tab was hidden/unmounted.
@@ -108,9 +108,25 @@ export default function FocusTab({ stats, onLogFocus }) {
     }));
   }
 
+  function changeJob(value) {
+    setSession((prev) => ({ ...prev, jobId: value || null }));
+  }
+
   const progress = 1 - secondsLeft / totalSeconds;
   const today = getTodayString();
   const todayHistory = getHistoryEntry(stats, today);
+
+  const jobMinutes = {};
+  for (let i = 0; i < 7; i++) {
+    const entry = getHistoryEntry(stats, shiftDate(today, -i));
+    for (const [id, minutes] of Object.entries(entry.focusByJob || {})) {
+      jobMinutes[id] = (jobMinutes[id] || 0) + minutes;
+    }
+  }
+  const jobBreakdown = jobs
+    .map((job) => ({ job, minutes: jobMinutes[job.id] || 0 }))
+    .filter(({ minutes }) => minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -177,6 +193,23 @@ export default function FocusTab({ stats, onLogFocus }) {
             </label>
           </div>
 
+          {jobs.length > 0 && (
+            <label className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <Briefcase size={14} />
+              Job
+              <select
+                value={jobId || ''}
+                onChange={(e) => changeJob(e.target.value)}
+                className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">None</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>{job.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <p className="text-xs text-gray-400 dark:text-gray-500">{sessionsCompleted} session{sessionsCompleted === 1 ? '' : 's'} completed this visit</p>
         </div>
 
@@ -192,6 +225,23 @@ export default function FocusTab({ stats, onLogFocus }) {
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Minutes focused, last 7 days</p>
             <ActivityChart history={stats.history || {}} metric="focusMinutes" />
           </div>
+
+          {jobBreakdown.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Focus time by job, last 7 days</p>
+              <div className="space-y-1.5">
+                {jobBreakdown.map(({ job, minutes }) => (
+                  <div key={job.id} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: job.color }} />
+                      {job.name}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400">{minutes}m</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

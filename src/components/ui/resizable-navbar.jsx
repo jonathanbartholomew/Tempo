@@ -140,10 +140,16 @@ export const MobileNavMenu = ({ children, className, isOpen }) => {
 };
 
 export const MobileNavToggle = ({ isOpen, onClick }) => {
-  return isOpen ? (
-    <X className="text-black dark:text-white" onClick={onClick} />
-  ) : (
-    <Menu className="text-black dark:text-white" onClick={onClick} />
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={isOpen}
+      aria-label={isOpen ? 'Close menu' : 'Open menu'}
+      className="p-1 rounded-md text-black dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+    >
+      {isOpen ? <X size={22} /> : <Menu size={22} />}
+    </button>
   );
 };
 

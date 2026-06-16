@@ -21,6 +21,7 @@ export const DEFAULT_FOCUS_SESSION = {
   running: false,
   sessionsCompleted: 0,
   updatedAt: null,
+  jobId: null,
 };
 
 export const DEFAULT_TIME_FORMAT = '12h';
@@ -147,7 +148,7 @@ export function getJob(jobs, jobId) {
 
 export function getHistoryEntry(stats, date) {
   const entry = (stats.history || {})[date];
-  return { completed: 0, xp: 0, focusMinutes: 0, ...entry };
+  return { completed: 0, xp: 0, focusMinutes: 0, focusByJob: {}, ...entry };
 }
 
 export async function fetchGoogleProfile(accessToken) {
