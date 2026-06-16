@@ -19,7 +19,7 @@ export function DataProvider({ auth, children }) {
   }, [loading]);
 
   return (
-    <DataContext.Provider value={{ getValue, setValue }}>
+    <DataContext.Provider value={{ getValue, setValue, loading }}>
       {phase !== 'done' && <LoadingScreen phase={phase} user={auth?.user} />}
       {children}
     </DataContext.Provider>
@@ -31,4 +31,8 @@ export function useServerStorage(key, defaultValue) {
   const value = ctx.getValue(key, defaultValue);
   const setter = useCallback((updater) => ctx.setValue(key, updater, defaultValue), [ctx, key, defaultValue]);
   return [value, setter];
+}
+
+export function useDataLoading() {
+  return useContext(DataContext).loading;
 }

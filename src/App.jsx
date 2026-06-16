@@ -22,7 +22,7 @@ import { useCalendarAccounts } from './hooks/useCalendarAccounts';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useJira } from './hooks/useJira';
 import { useTimeTracking } from './hooks/useTimeTracking';
-import { DataProvider, useServerStorage } from './context/DataContext';
+import { DataProvider, useServerStorage, useDataLoading } from './context/DataContext';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import {
   STORAGE_KEYS,
@@ -137,8 +137,9 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     setHiddenEventTitles((prev) => prev.filter((t) => t !== title));
   }
 
+  const dataLoading = useDataLoading();
   const { getNewlyUnlocked } = useAchievements();
-  const prevLevelRef = useRef(getLevelInfo(stats.totalXp).level);
+  const prevLevelRef = useRef(null);
 
   useNotifications(meetings);
 
@@ -332,12 +333,17 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
 
   // --- Level up ---
   useEffect(() => {
+    if (dataLoading) return;
     const level = getLevelInfo(stats.totalXp).level;
+    if (prevLevelRef.current === null) {
+      prevLevelRef.current = level; // establish baseline after real data loads
+      return;
+    }
     if (level > prevLevelRef.current) {
       pushToast(`Level up! You are now Level ${level}`);
       prevLevelRef.current = level;
     }
-  }, [stats.totalXp]);
+  }, [stats.totalXp, dataLoading]);
 
   const profileHasSelections = (profile.usageType?.length + profile.role?.length + profile.specialty?.length + profile.goals?.length) > 0;
   if (!profile.onboardingComplete || !profileHasSelections) {
