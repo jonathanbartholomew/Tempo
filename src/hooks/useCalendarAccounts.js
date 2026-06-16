@@ -1,8 +1,8 @@
-import { useStorage } from './useStorage';
+import { useServerStorage } from '../context/DataContext';
 import { STORAGE_KEYS, fetchGoogleProfile } from '../utils/helpers';
 
 export function useCalendarAccounts() {
-  const [accounts, setAccounts] = useStorage(STORAGE_KEYS.calendarAccounts, []);
+  const [accounts, setAccounts] = useServerStorage(STORAGE_KEYS.calendarAccounts, []);
 
   async function addAccount(tokenResponse) {
     const { access_token, expires_in } = tokenResponse;

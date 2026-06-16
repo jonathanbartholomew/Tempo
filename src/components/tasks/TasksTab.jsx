@@ -5,7 +5,7 @@ import QuickAdd from '../today/QuickAdd';
 import AIPlanImport from '../today/AIPlanImport';
 import { getJob, getTodayString, formatDateLong } from '../../utils/helpers';
 
-export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onToggleTask, onDeleteTask, onEditTask, timeFormat }) {
+export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onAddMeeting, onAiPlanImported, onToggleTask, onDeleteTask, onEditTask, timeFormat }) {
   const [addDate, setAddDate] = useState(getTodayString());
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -36,7 +36,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
         <QuickAdd jobs={jobs} onAdd={(task) => onAddTask({ ...task, date: addDate })} />
       </div>
 
-      <AIPlanImport jobs={jobs} tasks={tasks} meetings={meetings} googleEvents={googleEvents} date={addDate} onAddTask={onAddTask} />
+      <AIPlanImport jobs={jobs} tasks={tasks} meetings={meetings} googleEvents={googleEvents} date={addDate} onAddTask={onAddTask} onAddMeeting={onAddMeeting} onAiPlanImported={onAiPlanImported} />
 
       {overdue.length > 0 && (
         <Section title="Overdue">

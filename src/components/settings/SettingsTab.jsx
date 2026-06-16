@@ -1,10 +1,33 @@
 import { useGoogleLogin } from '@react-oauth/google';
-import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle, CheckCircle2, Link2 } from 'lucide-react';
 import JobsTab from '../jobs/JobsTab';
 import MeetingsTab from '../meetings/MeetingsTab';
 import { CALENDAR_ACCOUNT_COLORS, TIMEZONES, TIME_FORMATS } from '../../utils/helpers';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+
+const PROFILE_STEPS = [
+  {
+    key: 'usageType',
+    label: 'Using Tempo for',
+    options: ['Personal Productivity', 'Freelance & Client Work', 'Small Business', 'Team / Organization', 'Student'],
+  },
+  {
+    key: 'role',
+    label: 'Your role',
+    options: ['Freelancer / Contractor', 'Employee', 'Business Owner', 'Manager / Team Lead', 'Individual Contributor', 'Student', 'Executive / Director'],
+  },
+  {
+    key: 'specialty',
+    label: 'What you do',
+    options: ['Software Development', 'Web Development', 'Project Management', 'Design / UX', 'Product Management', 'Marketing', 'Sales', 'Data / Analytics', 'DevOps / Infrastructure', 'Content Creation', 'Finance / Accounting', 'Consulting'],
+  },
+  {
+    key: 'goals',
+    label: 'Goals',
+    options: ['Stay on top of my schedule', 'Manage multiple jobs or clients', 'Build consistent daily habits', 'Track focus & deep work time', 'Reduce overwhelm', 'Hit my daily goals', 'Collaborate with a team'],
+  },
+];
 
 export default function SettingsTab({
   theme,
@@ -32,6 +55,9 @@ export default function SettingsTab({
   onSetTimezone,
   timeFormat,
   onSetTimeFormat,
+  profile,
+  onUpdateProfile,
+  jira,
 }) {
   const connectCalendar = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -219,6 +245,82 @@ export default function SettingsTab({
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
         <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={onAddMeeting} onDeleteMeeting={onDeleteMeeting} timeFormat={timeFormat} />
       </div>
+
+      {/* Connected Apps */}
+      {jira && (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Connected Apps</h2>
+          <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.485V1.005A1.001 1.001 0 0 0 23.013 0z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Jira</p>
+                {jira.status.connected ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <CheckCircle2 size={11} className="text-green-500" />
+                    {jira.status.siteName}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Not connected</p>
+                )}
+              </div>
+            </div>
+            {jira.status.connected ? (
+              <button
+                onClick={jira.disconnect}
+                className="text-xs px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              >
+                Disconnect
+              </button>
+            ) : (
+              <button
+                onClick={jira.connect}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+              >
+                <Link2 size={12} /> Connect
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Profile */}
+      {profile && onUpdateProfile && (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Your Profile</h2>
+          {PROFILE_STEPS.map(({ key, label, options }) => (
+            <div key={key}>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{label}</p>
+              <div className="flex flex-wrap gap-2">
+                {options.map((option) => {
+                  const isSelected = (profile[key] || []).includes(option);
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        const list = profile[key] || [];
+                        onUpdateProfile({
+                          ...profile,
+                          [key]: isSelected ? list.filter((o) => o !== option) : [...list, option],
+                        });
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

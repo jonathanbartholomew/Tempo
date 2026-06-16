@@ -9,6 +9,7 @@ import {
   PartyPopper,
   Check,
   Quote,
+  Heart,
 } from "lucide-react";
 import logoLight from "../../assets/tempo-logo-trans.png";
 import logoDark from "../../assets/tempo-logo-dark-mode.png";
@@ -97,29 +98,39 @@ const NAV_ITEMS = [
 
 const PRICING_TIERS = [
   {
-    name: "Free",
-    price: "$0",
-    suffix: "/ forever",
-    description: "Everything you need to get organized and build momentum.",
+    name: "Personal",
+    price: "$12",
+    suffix: "/ month",
+    description: "For individuals who want an AI-powered edge on their day.",
     cta: "Get started",
+    highlighted: true,
+    badge: "Most popular",
     features: [
+      "AI Day Planner (Claude-powered)",
       "Unlimited tasks & meetings",
-      "1 connected Google Calendar",
-      "AI day-plan import",
-      "XP, streaks & achievements",
+      "Multiple calendar accounts",
+      "Multi-job tracking & color coding",
+      "Category time entry tagging",
+      "Jira, Asana & Linear integration",
+      "Exclusive achievements & rewards",
+      "XP, streaks & level system",
+      "Focus timer & Pomodoro",
     ],
   },
   {
-    name: "Personal",
-    price: "$10",
-    suffix: "/ month",
-    description: "For people juggling multiple calendars and jobs.",
+    name: "Team",
+    price: "$29",
+    suffix: "/ user / month",
+    description: "For small teams who want to move fast and stay aligned.",
     cta: "Get started",
-    highlighted: true,
     features: [
-      "Everything in Free",
-      "Unlimited connected calendars",
-      "Multiple jobs & color-coded accounts",
+      "Everything in Personal",
+      "Team workspace",
+      "Admin controls & user management",
+      "Assign tasks across team members",
+      "Shared task boards",
+      "Team achievements & leaderboards",
+      "Team analytics & reporting",
       "Priority support",
     ],
   },
@@ -127,13 +138,18 @@ const PRICING_TIERS = [
     name: "Enterprise",
     price: "Contact us",
     suffix: "",
-    description: "For teams that want Tempo across the organization.",
+    description: "For organizations that need full control at scale.",
     cta: "Contact sales",
     features: [
-      "Everything in Personal",
-      "Team workspaces",
-      "SSO & admin controls",
-      "Dedicated support",
+      "Everything in Team",
+      "Company-wide workspace",
+      "Role-based access control",
+      "Multiple teams & departments",
+      "Custom SSO & SCIM provisioning",
+      "Org-wide analytics & exports",
+      "Custom integrations",
+      "Dedicated success manager",
+      "SLA & compliance support",
     ],
   },
 ];
@@ -389,7 +405,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
         style={{
           backgroundImage: `url(${heroBgImg})`,
           backgroundSize: "cover",
-          backgroundPosition: "center",
+          backgroundPosition: "center 20%",
         }}
       >
         <div className="relative z-10 h-full max-w-5xl mx-auto px-4 flex flex-col items-center justify-center text-center">
@@ -449,7 +465,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
             className="sticky top-0 h-screen overflow-hidden flex items-center"
             style={{
               backgroundImage: `url(${horizontalLinesBgImg})`,
-              backgroundSize: "cover",
+              backgroundSize: "160% auto",
               backgroundPosition: `${25 + hProgress * 40}% center`,
             }}
           >
@@ -505,7 +521,11 @@ export default function LoginScreen({ theme, onGetStarted }) {
                         />
                         <div
                           className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-cover bg-center flex items-start"
-                          style={{ backgroundImage: `url(${bgImage})`, boxShadow: '0 0 0 8px rgba(255,255,255,0.25), 0 0 40px rgba(34,211,238,0.08), 0 25px 50px rgba(0,0,0,0.5)' }}
+                          style={{
+                            backgroundImage: `url(${bgImage})`,
+                            boxShadow:
+                              "0 0 0 8px rgba(255,255,255,0.13), 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.12)",
+                          }}
                         >
                           <div className="max-w-md pt-10 sm:pt-14 pl-8 sm:pl-12 pr-6 text-left">
                             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 mb-4">
@@ -581,12 +601,12 @@ export default function LoginScreen({ theme, onGetStarted }) {
         </section>
 
         {/* Stats band */}
-        <div className="relative overflow-hidden py-16">
+        <div className="relative overflow-hidden py-16 mt-24">
           <div className="relative z-10 max-w-5xl mx-auto px-4">
             <Reveal className="text-center mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold text-white">
                 Built for people who{" "}
-                <span className="text-blue-400">move fast</span>
+                <span className="text-blue-400 uppercase">move fast</span>
               </h2>
               <p className="mt-2 text-blue-200/60 text-sm">
                 Thousands of professionals plan their day with Tempo
@@ -647,7 +667,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
               {/* Content card — always visible; only the glass background fades in */}
               <div className="relative z-10 w-full max-w-lg rounded-2xl overflow-hidden text-center">
                 <div
-                  className="absolute inset-0 border border-white/10 bg-white/5 backdrop-blur-md"
+                  className="absolute inset-0 apple-glass"
                   style={{ opacity: howExpand }}
                   aria-hidden="true"
                 />
@@ -728,7 +748,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {TESTIMONIALS.map(({ quote, name, role, initials }, i) => (
                 <Reveal key={name} delay={i * 0.12}>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 shadow-sm flex flex-col gap-4 h-full">
+                  <div className="apple-glass-static rounded-2xl p-6 flex flex-col gap-4 h-full">
                     <Quote size={20} className="text-blue-400 shrink-0" />
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed flex-1">
                       {quote}
@@ -755,15 +775,14 @@ export default function LoginScreen({ theme, onGetStarted }) {
 
         {/* Pricing */}
         <div id="pricing" className="relative overflow-hidden">
-          <SectionGlow />
           <div className="max-w-5xl mx-auto px-4 py-16">
             <Reveal className="text-center max-w-2xl mx-auto mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                Simple pricing,{" "}
-                <span className="text-blue-400">NO SURPRISES</span>
+                Plans built for{" "}
+                <span className="text-blue-400">HOW YOU WORK</span>
               </h2>
               <p className="mt-2 text-sm sm:text-base text-slate-400">
-                Start for free. Upgrade when you need more.
+                From solo professionals to entire organizations — Tempo scales with you.
               </p>
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
@@ -774,15 +793,13 @@ export default function LoginScreen({ theme, onGetStarted }) {
                   className={tier.highlighted ? "sm:scale-105" : ""}
                 >
                   <div
-                    className={`relative rounded-2xl border p-6 flex flex-col backdrop-blur-md ${
-                      tier.highlighted
-                        ? "border-blue-500/40 bg-blue-500/15 shadow-lg"
-                        : "border-white/10 bg-white/5 shadow-sm"
+                    className={`relative rounded-2xl p-6 flex flex-col ${
+                      tier.highlighted ? "apple-glass-static-blue" : "apple-glass-static"
                     }`}
                   >
-                    {tier.highlighted && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold">
-                        Most popular
+                    {tier.badge && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold whitespace-nowrap">
+                        {tier.badge}
                       </span>
                     )}
                     <h3 className="text-lg font-bold text-white">
@@ -840,14 +857,14 @@ export default function LoginScreen({ theme, onGetStarted }) {
                 Ready to find your <span className="text-blue-400">Tempo?</span>
               </h2>
               <p className="mt-4 text-lg text-blue-200/70">
-                Sync your calendar and start planning your day — free, forever.
+                Connect your calendars, let AI plan your day, and start building momentum.
               </p>
               <div className="mt-8">
                 <button
                   onClick={onGetStarted}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-blue-600 text-white text-base font-semibold hover:bg-blue-500 transition-colors shadow-xl cursor-pointer"
                 >
-                  Get started free
+                  Get started
                 </button>
               </div>
               <p className="mt-6 text-xs text-blue-300/40">
@@ -897,9 +914,17 @@ export default function LoginScreen({ theme, onGetStarted }) {
               </button>
             </nav>
 
-            <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Tempo. All rights reserved.
-            </p>
+            <div className="flex flex-col items-center sm:items-end gap-1">
+              <p className="text-xs text-slate-500">
+                © {new Date().getFullYear()} Tempo. All rights reserved.
+              </p>
+              <p className="text-xs text-slate-500 flex items-center gap-1">
+                Product made with <Heart size={11} className="text-blue-500 fill-blue-500" aria-hidden="true" /> by{" "}
+                <a href="https://daedabyte.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-400 transition-colors">
+                  Daedabyte
+                </a>
+              </p>
+            </div>
           </div>
         </footer>
       </main>
@@ -999,8 +1024,8 @@ function ScrollProgressBar() {
 function SectionGlow() {
   return (
     <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-500/15 blur-3xl animate-drift" />
-      <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-purple-500/10 blur-3xl animate-drift-reverse" />
+      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-500/15 blur-3xl animate-drift" style={{ willChange: 'transform' }} />
+      <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-purple-500/10 blur-3xl animate-drift-reverse" style={{ willChange: 'transform' }} />
     </div>
   );
 }

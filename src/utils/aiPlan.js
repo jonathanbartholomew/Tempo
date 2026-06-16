@@ -103,9 +103,20 @@ export function parsePlanText(text, jobs, defaultDate) {
     jobId: findJobId(t.job),
   })).filter((t) => t.title);
 
-  if (tasks.length === 0) {
-    throw new Error('No tasks found in that JSON.');
+  const meetings = (data.meetings || []).map((m) => ({
+    title: String(m.title || '').trim(),
+    date: m.date || fallbackDate,
+    time: m.time || null,
+    duration: typeof m.duration === 'number' ? m.duration : 30,
+    jobId: findJobId(m.job),
+    notes: m.notes || '',
+    reminder: false,
+    reminderMins: 10,
+  })).filter((m) => m.title);
+
+  if (tasks.length === 0 && meetings.length === 0) {
+    throw new Error('No tasks or meetings found in that JSON.');
   }
 
-  return { tasks };
+  return { tasks, meetings };
 }

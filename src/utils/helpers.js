@@ -11,6 +11,15 @@ export const STORAGE_KEYS = {
   timezone: 'tempo_timezone',
   timeFormat: 'tempo_time_format',
   focusSession: 'tempo_focus_session',
+  profile: 'tempo_profile',
+};
+
+export const DEFAULT_PROFILE = {
+  onboardingComplete: false,
+  usageType: [],
+  role: [],
+  specialty: [],
+  goals: [],
 };
 
 export const DEFAULT_FOCUS_SESSION = {
@@ -79,6 +88,8 @@ export const DEFAULT_STATS = {
   nightOwlEarned: false,
   futureTasksAdded: 0,
   longestStreak: 0,
+  aiPlanImports: 0,
+  focusSessions: 0,
   history: {},
 };
 

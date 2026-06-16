@@ -6,10 +6,12 @@ import SignInScreen from './components/auth/SignInScreen';
 import TodayTab from './components/today/TodayTab';
 import TasksTab from './components/tasks/TasksTab';
 import ScheduleTab from './components/schedule/ScheduleTab';
-import FocusTab from './components/focus/FocusTab';
 import ProgressTab from './components/progress/ProgressTab';
 import AchievementsTab from './components/achievements/AchievementsTab';
 import SettingsTab from './components/settings/SettingsTab';
+import JiraTab from './components/jira/JiraTab';
+import TimeTab from './components/time/TimeTab';
+import GlobalTimerBar from './components/layout/GlobalTimerBar';
 import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -17,11 +19,15 @@ import { useTheme } from './hooks/useTheme';
 import { useAuth } from './hooks/useAuth';
 import { useCalendarAccounts } from './hooks/useCalendarAccounts';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
+import { useJira } from './hooks/useJira';
+import { useTimeTracking } from './hooks/useTimeTracking';
 import { DataProvider, useServerStorage } from './context/DataContext';
+import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import {
   STORAGE_KEYS,
   CALENDAR_ACCOUNT_COLORS,
   DEFAULT_STATS,
+  DEFAULT_PROFILE,
   DEFAULT_TIMEZONE,
   DEFAULT_TIME_FORMAT,
   generateId,
@@ -64,7 +70,12 @@ export default function App() {
 }
 
 function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnected }) {
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('jira') ? 'jira' : 'today';
+  });
+  const jira = useJira(auth);
+  const timeTracking = useTimeTracking(auth);
   const [jobs, setJobs] = useServerStorage(STORAGE_KEYS.jobs, []);
   const [tasks, setTasks] = useServerStorage(STORAGE_KEYS.tasks, []);
   const [meetings, setMeetings] = useServerStorage(STORAGE_KEYS.meetings, []);
@@ -72,6 +83,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   const [earned, setEarned] = useServerStorage(STORAGE_KEYS.earned, []);
   const [timezone, setTimezone] = useServerStorage(STORAGE_KEYS.timezone, DEFAULT_TIMEZONE);
   const [timeFormat, setTimeFormat] = useServerStorage(STORAGE_KEYS.timeFormat, DEFAULT_TIME_FORMAT);
+  const [profile, setProfile] = useServerStorage(STORAGE_KEYS.profile, DEFAULT_PROFILE);
   const [toasts, setToasts] = useState([]);
   const { accounts: calendarAccounts, addAccount: addCalendarAccount, removeAccount: removeCalendarAccount } = useCalendarAccounts();
 
@@ -134,6 +146,21 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     setToasts((prev) => [...prev, { id, message }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
   }
+
+  // Detect Jira OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jiraParam = params.get('jira');
+    if (jiraParam === 'connected') {
+      jira.handleConnectedCallback();
+      pushToast('Jira connected successfully!');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (jiraParam === 'error') {
+      pushToast('Jira connection failed. Please try again.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Tasks ---
   function addTask({ title, jobId, priority, date, time }) {
@@ -260,6 +287,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       const focusByJob = todayEntry.focusByJob || {};
       return {
         ...prev,
+        focusSessions: (prev.focusSessions || 0) + 1,
         history: {
           ...history,
           [today]: {
@@ -272,6 +300,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
         },
       };
     });
+  }
+
+  function addAiPlanImport() {
+    setStats((prev) => ({ ...prev, aiPlanImports: (prev.aiPlanImports || 0) + 1 }));
   }
 
   // --- Meetings ---
@@ -305,8 +337,13 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     }
   }, [stats.totalXp]);
 
+  const profileHasSelections = (profile.usageType?.length + profile.role?.length + profile.specialty?.length + profile.goals?.length) > 0;
+  if (!profile.onboardingComplete || !profileHasSelections) {
+    return <OnboardingFlow onComplete={(data) => setProfile(data)} />;
+  }
+
   return (
-    <div className="min-h-screen transition-colors md:pl-60">
+    <div className={`min-h-screen transition-colors md:pl-60 ${timeTracking.timer.active && activeTab !== 'time' ? 'pb-14' : ''}`}>
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gray-50 dark:bg-gray-950">
         <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', opacity: 0.1 }} />
       </div>
@@ -322,6 +359,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           stats={stats}
           user={auth.user}
           onAddTask={addTask}
+          onAddMeeting={addMeeting}
+          onAiPlanImported={addAiPlanImport}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
           onEditTask={editTask}
@@ -329,6 +368,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onGoToMeetings={() => setActiveTab('calendar')}
           onHideEvent={hideCalendarEvent}
           timeFormat={timeFormat}
+          jira={jira}
+          onGoToJira={() => setActiveTab('jira')}
         />
       )}
 
@@ -339,6 +380,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           meetings={meetings}
           googleEvents={visibleGoogleEvents}
           onAddTask={addTask}
+          onAddMeeting={addMeeting}
+          onAiPlanImported={addAiPlanImport}
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
           onEditTask={editTask}
@@ -364,16 +407,26 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
         />
       )}
 
-      {activeTab === 'focus' && (
-        <FocusTab stats={stats} jobs={jobs} onLogFocus={logFocusSession} />
-      )}
-
       {activeTab === 'progress' && (
         <ProgressTab stats={stats} />
       )}
 
       {activeTab === 'achievements' && (
         <AchievementsTab stats={stats} jobs={jobs} earned={earned} />
+      )}
+
+      {activeTab === 'jira' && (
+        <JiraTab
+          jira={jira}
+          onStartTimer={(args) => {
+            timeTracking.startTimerSafe(args);
+            setActiveTab('time');
+          }}
+        />
+      )}
+
+      {activeTab === 'time' && (
+        <TimeTab timeTracking={timeTracking} tasks={tasks} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
       )}
 
       {activeTab === 'settings' && (
@@ -403,6 +456,21 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onSetTimezone={setTimezone}
           timeFormat={timeFormat}
           onSetTimeFormat={setTimeFormat}
+          profile={profile}
+          onUpdateProfile={setProfile}
+          jira={jira}
+        />
+      )}
+
+      {activeTab !== 'time' && (
+        <GlobalTimerBar
+          timer={timeTracking.timer}
+          jobs={jobs}
+          onPause={timeTracking.pauseTimer}
+          onResume={timeTracking.resumeTimer}
+          onStop={timeTracking.stopAndSave}
+          onDiscard={timeTracking.discardTimer}
+          onGoToTime={() => setActiveTab('time')}
         />
       )}
     </div>

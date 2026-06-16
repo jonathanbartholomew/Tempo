@@ -16,6 +16,17 @@ import {
   ClipboardCheck,
   Moon,
   CalendarCheck,
+  Shield,
+  Video,
+  Building,
+  TrendingUp,
+  Timer,
+  Brain,
+  Hourglass,
+  Infinity,
+  Sparkles,
+  Bot,
+  Cpu,
 } from 'lucide-react';
 
 const ICONS = {
@@ -35,6 +46,17 @@ const ICONS = {
   ClipboardCheck,
   Moon,
   CalendarCheck,
+  Shield,
+  Video,
+  Building,
+  TrendingUp,
+  Timer,
+  Brain,
+  Hourglass,
+  Infinity,
+  Sparkles,
+  Bot,
+  Cpu,
 };
 
 export default function AchievementBadge({ achievement, earned }) {

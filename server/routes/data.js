@@ -12,6 +12,8 @@ const ALLOWED_KEYS = new Set([
   'tempo_timezone',
   'tempo_time_format',
   'tempo_focus_session',
+  'tempo_profile',
+  'tempo_calendar_accounts',
 ]);
 
 const router = Router();

@@ -3,7 +3,6 @@ import {
   Sun,
   ListTodo,
   CalendarDays,
-  Timer,
   TrendingUp,
   Trophy,
   Settings,
@@ -11,17 +10,33 @@ import {
   Menu,
   X,
   LogOut,
+  Clock,
 } from "lucide-react";
-import logoLight from "../../assets/tempo-logo-trans.png";
-import logoDark from "../../assets/tempo-logo-dark-mode.png";
+import logoLight from "../../assets/tempo-logo-trans-right.png";
+import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
+
+function JiraIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.485V1.005A1.001 1.001 0 0 0 23.013 0z" />
+    </svg>
+  );
+}
 
 const NAV_ITEMS = [
   { id: "today", label: "Today", icon: Sun },
   { id: "tasks", label: "Tasks", icon: ListTodo },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
-  { id: "focus", label: "Focus", icon: Timer },
+  { id: "time", label: "Time", icon: Clock },
   { id: "progress", label: "Progress", icon: TrendingUp },
   { id: "achievements", label: "Achievements", icon: Trophy },
+];
+
+const CONNECTED_APPS_ITEMS = [
+  { id: "jira", label: "Jira", iconComponent: JiraIcon },
+];
+
+const BOTTOM_ITEMS = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -40,26 +55,40 @@ export default function Sidebar({
     setMobileOpen(false);
   }
 
+  function renderNavItem(item) {
+    const Icon = item.icon;
+    const IconComponent = item.iconComponent;
+    const active = activeTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => selectTab(item.id)}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+          active
+            ? "bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.5)]"
+            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
+        }`}
+      >
+        {IconComponent ? <IconComponent size={18} /> : <Icon size={18} />}
+        {item.label}
+      </button>
+    );
+  }
+
   const navList = (
     <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-      {NAV_ITEMS.map((item) => {
-        const Icon = item.icon;
-        const active = activeTab === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => selectTab(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-              active
-                ? "bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.5)]"
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
-            }`}
-          >
-            <Icon size={18} />
-            {item.label}
-          </button>
-        );
-      })}
+      {NAV_ITEMS.map(renderNavItem)}
+
+      <div className="pt-3 pb-1">
+        <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
+          Connected Apps
+        </p>
+      </div>
+      {CONNECTED_APPS_ITEMS.map(renderNavItem)}
+
+      <div className="pt-2">
+        {BOTTOM_ITEMS.map(renderNavItem)}
+      </div>
     </nav>
   );
 

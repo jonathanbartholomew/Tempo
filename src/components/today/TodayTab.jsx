@@ -16,6 +16,7 @@ import AIPlanImport from "./AIPlanImport";
 import ProgressRing from "./ProgressRing";
 import ActivityChart from "./ActivityChart";
 import MonthCalendar from "../schedule/MonthCalendar";
+import JiraCard from "../jira/JiraCard";
 import {
   getTodayString,
   formatDateLong,
@@ -45,9 +46,13 @@ export default function TodayTab({
   onDeleteTask,
   onEditTask,
   onReorderTasks,
+  onAddMeeting,
+  onAiPlanImported,
   onGoToMeetings,
   onHideEvent,
   timeFormat,
+  jira,
+  onGoToJira,
 }) {
   const [showCompleted, setShowCompleted] = useState(true);
   const [dragIndex, setDragIndex] = useState(null);
@@ -195,6 +200,8 @@ export default function TodayTab({
           googleEvents={googleEvents}
           date={viewDate}
           onAddTask={onAddTask}
+          onAddMeeting={onAddMeeting}
+          onAiPlanImported={onAiPlanImported}
         />
       </div>
 
@@ -406,6 +413,16 @@ export default function TodayTab({
           />
         </div>
       </div>
+
+      {/* Jira card — only when connected */}
+      {jira?.status?.connected && (
+        <JiraCard
+          issues={jira.issues}
+          issuesLoading={jira.issuesLoading}
+          siteName={jira.status.siteName}
+          onGoToJira={onGoToJira}
+        />
+      )}
 
       {/* Row 2: Focus time + Progress */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

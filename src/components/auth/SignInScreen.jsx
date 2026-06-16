@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
-import { ArrowLeft } from 'lucide-react';
-import logoDark from '../../assets/tempo-logo-dark-mode.png';
-import heroBgImg from '../../assets/hero-background.jpg';
-import { GoogleIcon } from '../ui/google-icon';
+import { useState } from "react";
+import { useGoogleLogin } from "@react-oauth/google";
+import { ArrowLeft } from "lucide-react";
+import logoDark from "../../assets/tempo-logo-dark-mode.png";
+import heroBgImg from "../../assets/hero-background.jpg";
+import { GoogleIcon } from "../ui/google-icon";
 
-const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 export default function SignInScreen({ onLogin, onBack }) {
-  const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
+  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
 
   const googleLogin = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -17,18 +17,29 @@ export default function SignInScreen({ onLogin, onBack }) {
       try {
         await onLogin(tokenResponse);
       } catch {
-        setError('Sign-in failed. Please try again.');
+        setError("Sign-in failed. Please try again.");
       }
     },
-    onError: () => setError('Sign-in failed. Please try again.'),
+    onError: () => setError("Sign-in failed. Please try again."),
   });
 
   return (
     <div className="min-h-screen flex bg-gray-950">
       {/* Left: branding panel with tracing beams */}
-      <div className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%' }}>
+      <div
+        className="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden"
+        style={{
+          backgroundImage: `url(${heroBgImg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "right 20%",
+        }}
+      >
         <button onClick={onBack} className="relative z-10">
-          <img src={logoDark} alt="Tempo" className="h-64 w-auto drop-shadow-lg" />
+          <img
+            src={logoDark}
+            alt="Tempo"
+            className="h-64 w-auto drop-shadow-lg"
+          />
         </button>
       </div>
 
@@ -43,13 +54,18 @@ export default function SignInScreen({ onLogin, onBack }) {
         </button>
 
         <div className="w-full max-w-sm">
-          <button onClick={onBack} className="lg:hidden mb-8 flex items-center justify-center w-full">
+          <button
+            onClick={onBack}
+            className="lg:hidden mb-8 flex items-center justify-center w-full"
+          >
             <img src={logoDark} alt="Tempo" className="h-12 w-auto" />
           </button>
 
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white">Sign in</h1>
-            <p className="mt-2 text-sm text-gray-400">Welcome back! Please sign in to continue.</p>
+            <p className="mt-2 text-sm text-gray-400">
+              Welcome back! Please sign in to continue.
+            </p>
           </div>
 
           <button
@@ -66,7 +82,10 @@ export default function SignInScreen({ onLogin, onBack }) {
             <div className="h-px flex-1 bg-gray-800" />
           </div>
 
-          <label htmlFor="signin-email" className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="signin-email"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             Email address
           </label>
           <input
@@ -85,10 +104,13 @@ export default function SignInScreen({ onLogin, onBack }) {
             Continue
           </button>
 
-          {error && <p className="mt-3 text-sm text-red-500 text-center">{error}</p>}
+          {error && (
+            <p className="mt-3 text-sm text-red-500 text-center">{error}</p>
+          )}
 
           <p className="mt-6 text-center text-sm text-gray-400">
-            Don&apos;t have an account? <span className="font-semibold text-white">Sign up</span>
+            Don&apos;t have an account?{" "}
+            <span className="font-semibold text-white">Sign up</span>
           </p>
 
           <p className="mt-10 text-center text-xs text-gray-500">

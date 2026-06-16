@@ -46,6 +46,47 @@ button:not(:disabled) {
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), 0 8px 30px -8px rgba(37, 99, 235, 0.35);
 }
 
+.apple-glass {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+.apple-glass-blue {
+  background: rgba(29, 107, 253, 0.1);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(29, 107, 253, 0.35);
+  box-shadow:
+    0 8px 32px rgba(29, 107, 253, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* Same glass look without backdrop-filter — for sections where animation causes repaint flicker */
+.apple-glass-static {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+.apple-glass-static-blue {
+  background: rgba(29, 107, 253, 0.12);
+  border: 1px solid rgba(29, 107, 253, 0.35);
+  box-shadow:
+    0 8px 32px rgba(29, 107, 253, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
 @keyframes drift {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50% { transform: translate(40px, -30px) scale(1.1); }
