@@ -33,14 +33,14 @@ function getRemainingRequests(userId) {
   return Math.max(0, DAILY_LIMIT - entry.count);
 }
 
-function buildSystemPrompt({ jobs, tasks, meetings, googleEvents, date }) {
+function buildSystemPrompt({ jobs, tasks, meetings, googleEvents, jiraIssues, date }) {
   const jobsList = jobs?.length
     ? jobs.map((j) => j.name).join(', ')
     : 'none';
 
   const todayTasks = (tasks || []).filter((t) => t.date === date && !t.done);
   const tasksList = todayTasks.length
-    ? todayTasks.map((t) => `${t.title}${t.time ? ` @${t.time}` : ''}`).join(', ')
+    ? todayTasks.map((t) => `${t.title}${t.time ? ` @${t.time}` : ''}${t.priority && t.priority !== 'normal' ? ` (${t.priority})` : ''}`).join('\n')
     : 'none';
 
   const jobNameById = (id) => jobs?.find((j) => j.id === id)?.name;
@@ -49,21 +49,54 @@ function buildSystemPrompt({ jobs, tasks, meetings, googleEvents, date }) {
   const allEvents = [
     ...(meetings || []).filter((m) => m.date === date).map((m) => {
       const job = jobNameById(m.jobId);
-      return `${m.time} ${m.title}(${m.duration}m)${job ? `[${job}]` : ''}`;
+      return `${m.time} ${m.title} (${m.duration}m)${job ? ` [${job}]` : ''}`;
     }),
     ...(googleEvents || []).filter((e) => e.date === date).map((e) => {
       const job = jobNameByAccount(e.accountEmail) || e.account;
-      return e.allDay ? `all-day:${e.title}[${job}]` : `${e.time} ${e.title}(${e.duration}m)[${job}]`;
+      return e.allDay ? `All day: ${e.title} [${job}]` : `${e.time} ${e.title} (${e.duration}m) [${job}]`;
     }),
-  ];
-  const eventsList = allEvents.length ? allEvents.join(', ') : 'none';
+  ].sort();
+  const eventsList = allEvents.length ? allEvents.join('\n') : 'none';
 
-  return `Day planner for ${date}. Jobs: ${jobsList}. Existing tasks: ${tasksList}. Calendar: ${eventsList}.
-Ask the user what they need to get done (1-2 questions max), then output ONLY this JSON block:
+  const openJira = (jiraIssues || []).filter((i) => i.statusCategory !== 'done');
+  const jiraList = openJira.length
+    ? openJira.map((i) => `- ${i.key}: ${i.summary} [${i.status}${i.priority ? `, ${i.priority}` : ''}${i.project ? `, ${i.project}` : ''}]`).join('\n')
+    : 'none';
+
+  return `You are a day planner assistant for ${date}.
+
+JOBS/PROJECTS: ${jobsList}
+
+EXISTING TASKS FOR TODAY:
+${tasksList}
+
+CALENDAR & MEETINGS:
+${eventsList}
+
+JIRA TICKETS (open):
+${jiraList}
+
+Use all of the above context to understand what's on the user's plate. Follow this exact flow:
+
+STEP 1 — Ask 1-2 focused questions to understand what the user needs to accomplish today (factor in their calendar blocks as unavailable time, and Jira tickets as potential work items).
+
+STEP 2 — Once you have enough info, write a short natural-language overview of the day plan. Example format:
+"Here's your plan for ${date}:
+• 9:00 AM — [task] ([job])
+• 10:30 AM — [existing meeting, just noting it]
+• ..."
+Then ask: "Does this look good, or would you like to adjust anything?"
+
+STEP 3 — Only after the user confirms (says yes, looks good, go ahead, etc.), output ONLY this JSON block with no other text:
 \`\`\`json
-{"tasks":[{"title":"...","priority":"low|normal|high|urgent","date":"${date}","time":"HH:MM or null","job":"exact job name or null"}],"meetings":[{"title":"...","date":"${date}","time":"HH:MM","duration":30,"job":"exact job name or null","notes":null}]}
+{"tasks":[{"title":"...","priority":"low|normal|high|urgent","date":"${date}","time":"HH:MM or null","job":"exact job name or null","subtasks":["Step 1","Step 2"]}],"meetings":[]}
 \`\`\`
-Jobs must match one of: ${jobsList}. meetings array can be empty []. Don't recreate existing tasks or calendar events.`;
+
+Rules:
+- job must exactly match one of [${jobsList}] or be null.
+- subtasks is optional — include it when a task is complex enough to benefit from steps, or when the user asks. For broad/generic tickets (e.g. "work on X feature"), proactively suggest 3-5 concrete subtasks. Leave as [] for simple tasks.
+- Don't recreate existing tasks or calendar events already listed above.
+- Don't output JSON until the user explicitly confirms the plan.`;
 }
 
 router.post('/chat', async (req, res) => {
@@ -86,7 +119,7 @@ router.post('/chat', async (req, res) => {
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 600,
+      max_tokens: 1024,
       system: [{ type: 'text', text: buildSystemPrompt(context || {}), cache_control: { type: 'ephemeral' } }],
       messages: trimmedMessages,
     });

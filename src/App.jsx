@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
 import LoginScreen from './components/auth/LoginScreen';
@@ -12,6 +12,7 @@ import SettingsTab from './components/settings/SettingsTab';
 import JiraTab from './components/jira/JiraTab';
 import TimeTab from './components/time/TimeTab';
 import GlobalTimerBar from './components/layout/GlobalTimerBar';
+import UnderConstruction from './components/layout/UnderConstruction';
 import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -163,7 +164,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   }, []);
 
   // --- Tasks ---
-  function addTask({ title, jobId, priority, date, time }) {
+  function addTask({ title, jobId, priority, date, time, description }) {
     const taskDate = date || getTodayString();
     const tags = /rfp/i.test(title) ? ['rfp'] : [];
     setTasks((prev) => [
@@ -180,6 +181,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
         reminder: false,
         reminderTime: null,
         tags,
+        description: description || null,
       },
     ]);
     if (taskDate > getTodayString()) {
@@ -347,6 +349,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gray-50 dark:bg-gray-950">
         <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', opacity: 0.1 }} />
       </div>
+
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} />
       <Toast toasts={toasts} />
 
@@ -370,6 +373,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           timeFormat={timeFormat}
           jira={jira}
           onGoToJira={() => setActiveTab('jira')}
+          timeTracking={timeTracking}
         />
       )}
 
@@ -386,6 +390,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onDeleteTask={deleteTask}
           onEditTask={editTask}
           timeFormat={timeFormat}
+          timeTracking={timeTracking}
         />
       )}
 
@@ -412,7 +417,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       )}
 
       {activeTab === 'achievements' && (
-        <AchievementsTab stats={stats} jobs={jobs} earned={earned} />
+        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} earned={earned} />
       )}
 
       {activeTab === 'jira' && (
@@ -424,6 +429,9 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           }}
         />
       )}
+
+      {activeTab === 'linear' && <UnderConstruction name="Linear" />}
+      {activeTab === 'asana' && <UnderConstruction name="Asana" />}
 
       {activeTab === 'time' && (
         <TimeTab timeTracking={timeTracking} tasks={tasks} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />

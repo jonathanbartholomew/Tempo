@@ -95,13 +95,22 @@ export function parsePlanText(text, jobs, defaultDate) {
 
   const fallbackDate = defaultDate || getTodayString();
 
-  const tasks = (data.tasks || []).map((t) => ({
-    title: String(t.title || '').trim(),
-    priority: VALID_PRIORITIES.includes(t.priority) ? t.priority : 'normal',
-    date: t.date || fallbackDate,
-    time: t.time || null,
-    jobId: findJobId(t.job),
-  })).filter((t) => t.title);
+  const tasks = (data.tasks || []).map((t) => {
+    const checklist = Array.isArray(t.subtasks)
+      ? t.subtasks
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+          .map((text) => ({ id: Math.random().toString(36).slice(2, 10), text, done: false }))
+      : [];
+    return {
+      title: String(t.title || '').trim(),
+      priority: VALID_PRIORITIES.includes(t.priority) ? t.priority : 'normal',
+      date: t.date || fallbackDate,
+      time: t.time || null,
+      jobId: findJobId(t.job),
+      ...(checklist.length > 0 && { checklist }),
+    };
+  }).filter((t) => t.title);
 
   const meetings = (data.meetings || []).map((m) => ({
     title: String(m.title || '').trim(),

@@ -23,6 +23,25 @@ function JiraIcon({ size = 18 }) {
   );
 }
 
+function LinearIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3.5 17.5L6.5 20.5L20.5 6.5L17.5 3.5L3.5 17.5Z" opacity="0.4"/>
+      <path d="M2 14L10 22L22 10L14 2L2 14ZM4.5 14L14 4.5L19.5 10L10 19.5L4.5 14Z"/>
+    </svg>
+  );
+}
+
+function AsanaIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="6" r="3.5"/>
+      <circle cx="6.5" cy="16" r="3.5"/>
+      <circle cx="17.5" cy="16" r="3.5"/>
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { id: "today", label: "Today", icon: Sun },
   { id: "tasks", label: "Tasks", icon: ListTodo },
@@ -34,6 +53,8 @@ const NAV_ITEMS = [
 
 const CONNECTED_APPS_ITEMS = [
   { id: "jira", label: "Jira", iconComponent: JiraIcon },
+  { id: "linear", label: "Linear", iconComponent: LinearIcon },
+  { id: "asana", label: "Asana", iconComponent: AsanaIcon },
 ];
 
 const BOTTOM_ITEMS = [

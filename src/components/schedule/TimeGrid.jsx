@@ -1,9 +1,10 @@
-import { EyeOff } from 'lucide-react';
+import { EyeOff, CheckCircle2, Circle } from 'lucide-react';
 import { getJob, getTodayString, formatTime } from '../../utils/helpers';
 
 const ROW_HEIGHT = 44; // px per 30-minute slot
 const START_HOUR = 6; // 6 AM
 const END_HOUR = 22; // 10 PM
+const TASK_DEFAULT_DURATION = 30; // minutes
 
 function buildSlots() {
   const slots = [];
@@ -23,12 +24,13 @@ function minutesFromGridStart(time) {
   return (h - START_HOUR) * 60 + m;
 }
 
-export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeetingClick, onHideEvent, timeFormat }) {
+export default function TimeGrid({ date, tasks = [], meetings, jobs, googleEvents, onMeetingClick, onHideEvent, timeFormat }) {
   const slots = buildSlots();
   const isToday = date === getTodayString();
   const now = new Date();
   const currentMinutes = (now.getHours() - START_HOUR) * 60 + now.getMinutes();
 
+  const dayTasks = tasks.filter((t) => t.date === date && t.time);
   const dayMeetings = meetings.filter((m) => m.date === date);
   const dayGoogleEvents = (googleEvents || []).filter((e) => e.date === date && !e.allDay);
 
@@ -52,6 +54,41 @@ export default function TimeGrid({ date, meetings, jobs, googleEvents, onMeeting
       })}
 
       <div className="absolute top-0 left-20 right-0 bottom-0">
+        {dayTasks.map((task) => {
+          const job = getJob(jobs, task.jobId);
+          const top = (minutesFromGridStart(task.time) / 30) * ROW_HEIGHT;
+          const duration = task.duration || TASK_DEFAULT_DURATION;
+          const height = Math.max((duration / 30) * ROW_HEIGHT, ROW_HEIGHT * 0.6);
+          const color = job?.color || '#3b82f6';
+          return (
+            <div
+              key={task.id}
+              className="absolute left-1 right-1 rounded-lg px-2 py-1 text-left text-xs font-medium overflow-hidden border-l-4"
+              style={{
+                top,
+                height,
+                borderLeftColor: color,
+                backgroundColor: `${color}18`,
+                borderTopColor: 'transparent',
+                borderRightColor: 'transparent',
+                borderBottomColor: 'transparent',
+              }}
+            >
+              <div className="flex items-center gap-1">
+                {task.done
+                  ? <CheckCircle2 size={10} className="flex-shrink-0 text-green-500" />
+                  : <Circle size={10} className="flex-shrink-0" style={{ color }} />
+                }
+                <span className={`truncate font-semibold ${task.done ? 'line-through opacity-50 text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                  {task.title}
+                </span>
+              </div>
+              <div className="truncate opacity-60 text-gray-600 dark:text-gray-400 pl-[14px]">
+                {formatTime(task.time, timeFormat)}{job ? ` · ${job.name}` : ''}
+              </div>
+            </div>
+          );
+        })}
         {dayGoogleEvents.map((event) => {
           const top = (minutesFromGridStart(event.time) / 30) * ROW_HEIGHT;
           const height = Math.max((event.duration / 30) * ROW_HEIGHT, ROW_HEIGHT * 0.6);

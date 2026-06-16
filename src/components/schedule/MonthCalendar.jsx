@@ -23,7 +23,7 @@ function buildGrid(year, month) {
   return cells;
 }
 
-export default function MonthCalendar({ selectedDate, onSelectDate, tasks, meetings, googleEvents }) {
+export default function MonthCalendar({ selectedDate, onSelectDate, tasks, meetings, googleEvents, jobs = [] }) {
   const initial = new Date(`${selectedDate}T00:00:00`);
   const [viewYear, setViewYear] = useState(initial.getFullYear());
   const [viewMonth, setViewMonth] = useState(initial.getMonth());
@@ -50,8 +50,10 @@ export default function MonthCalendar({ selectedDate, onSelectDate, tasks, meeti
   const cells = buildGrid(viewYear, viewMonth);
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
+  const jobMap = Object.fromEntries(jobs.map((j) => [j.id, j]));
+
   return (
-    <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-2">
+    <div className="flex flex-col h-full gap-2">
       <div className="flex items-center justify-between">
         <button
           onClick={goToPrevMonth}
@@ -76,21 +78,26 @@ export default function MonthCalendar({ selectedDate, onSelectDate, tasks, meeti
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="flex-1 grid grid-cols-7 auto-rows-fr gap-1">
         {cells.map((cell, i) => {
           const dateKey = toDateKey(cell.date);
           const isSelected = dateKey === selectedDate;
           const isToday = dateKey === today;
-          const hasItems =
-            tasks.some((t) => t.date === dateKey) ||
+
+          const timedTasks = tasks.filter((t) => t.date === dateKey && t.time && !t.done);
+          const hasMeetingOrEvent =
             meetings.some((m) => m.date === dateKey) ||
             (googleEvents || []).some((e) => e.date === dateKey);
+
+          const MAX = 2;
+          const visible = timedTasks.slice(0, MAX);
+          const overflow = timedTasks.length - MAX;
 
           return (
             <button
               key={i}
               onClick={() => onSelectDate(dateKey)}
-              className={`relative h-9 rounded-lg text-sm transition-colors ${
+              className={`relative w-full h-full rounded-lg text-xs transition-colors flex flex-col items-center pt-1 gap-0.5 overflow-hidden ${
                 !cell.inMonth ? 'text-gray-300 dark:text-gray-700' : 'text-gray-700 dark:text-gray-300'
               } ${
                 isSelected
@@ -100,13 +107,29 @@ export default function MonthCalendar({ selectedDate, onSelectDate, tasks, meeti
                   : 'hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
-              {cell.day}
-              {hasItems && (
-                <span
-                  className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
-                    isSelected ? 'bg-white' : 'bg-blue-500'
-                  }`}
-                />
+              <span>{cell.day}</span>
+
+              {cell.inMonth && (visible.length > 0 || hasMeetingOrEvent) && (
+                <div className="w-full px-1 space-y-0.5">
+                  {visible.map((t) => {
+                    const job = jobMap[t.jobId];
+                    return (
+                      <div
+                        key={t.id}
+                        className="h-1 rounded-full w-full"
+                        style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.7)' : (job?.color || '#3b82f6') }}
+                      />
+                    );
+                  })}
+                  {overflow > 0 && (
+                    <p className={`text-[8px] leading-none text-center ${isSelected ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'}`}>
+                      +{overflow}
+                    </p>
+                  )}
+                  {hasMeetingOrEvent && timedTasks.length === 0 && (
+                    <div className={`h-1 rounded-full w-full ${isSelected ? 'bg-white/50' : 'bg-blue-400 dark:bg-blue-500'}`} />
+                  )}
+                </div>
               )}
             </button>
           );

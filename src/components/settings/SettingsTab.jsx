@@ -79,7 +79,7 @@ export default function SettingsTab({
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
 
       {/* Account */}
@@ -250,6 +250,8 @@ export default function SettingsTab({
       {jira && (
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Connected Apps</h2>
+
+          {/* Jira */}
           <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3">
               <svg className="w-6 h-6 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -282,6 +284,36 @@ export default function SettingsTab({
                 <Link2 size={12} /> Connect
               </button>
             )}
+          </div>
+
+          {/* Linear — coming soon */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-800 opacity-50">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-purple-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 14L10 22L22 10L14 2L2 14ZM4.5 14L14 4.5L19.5 10L10 19.5L4.5 14Z"/>
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Linear</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Coming soon</p>
+              </div>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 font-medium">Soon</span>
+          </div>
+
+          {/* Asana — coming soon */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-800 opacity-50">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-pink-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="6" r="3.5"/>
+                <circle cx="6.5" cy="16" r="3.5"/>
+                <circle cx="17.5" cy="16" r="3.5"/>
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Asana</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Coming soon</p>
+              </div>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 font-medium">Soon</span>
           </div>
         </div>
       )}

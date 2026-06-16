@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Send, X, Download } from 'lucide-react';
+import { Sparkles, Send, X, Download, Mic, MicOff } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { parsePlanText } from '../../utils/aiPlan';
 import { getTodayString } from '../../utils/helpers';
 import { useAuth } from '../../hooks/useAuth';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date, onAddTask, onAddMeeting, onAiPlanImported }) {
+export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, jiraIssues = [], date, onAddTask, onAddMeeting, onAiPlanImported }) {
   const { auth } = useAuth();
   const [open, setOpen] = useState(false);
   const [planDate, setPlanDate] = useState(date || getTodayString());
@@ -17,13 +18,16 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
   const [pendingJson, setPendingJson] = useState(null);
   const [imported, setImported] = useState(false);
   const [remaining, setRemaining] = useState(null);
-  const bottomRef = useRef(null);
+  const [listening, setListening] = useState(false);
+  const messagesRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => { if (date) setPlanDate(date); }, [date]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
 
   function extractJson(text) {
@@ -47,7 +51,7 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
         },
         body: JSON.stringify({
           messages: [{ role: 'user', content: 'Hello, I want to plan my day.' }],
-          context: { jobs, tasks, meetings, googleEvents, date: dateToUse },
+          context: { jobs, tasks, meetings, googleEvents, jiraIssues, date: dateToUse },
         }),
       });
 
@@ -99,7 +103,7 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
         },
         body: JSON.stringify({
           messages: updatedMessages,
-          context: { jobs, tasks, meetings, googleEvents, date: planDate },
+          context: { jobs, tasks, meetings, googleEvents, jiraIssues, date: planDate },
         }),
       });
 
@@ -136,7 +140,46 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
     }
   }
 
-  function renderMessage(content) {
+  function toggleListening() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError('Speech recognition is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let finalTranscript = '';
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += t;
+        else interim = t;
+      }
+      setInput(finalTranscript + interim);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    };
+
+    recognition.onerror = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
+
+  function stripJson(content) {
     return content.replace(/```(?:json)?[\s\S]*?```/gi, '').trim();
   }
 
@@ -180,7 +223,7 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+      <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
@@ -190,7 +233,22 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-sm'
               }`}
             >
-              {renderMessage(msg.content)}
+              {msg.role === 'user' ? (
+                stripJson(msg.content)
+              ) : (
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    ul: ({ children }) => <ul className="list-disc pl-4 space-y-0.5 my-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal pl-4 space-y-0.5 my-1">{children}</ol>,
+                    li: ({ children }) => <li>{children}</li>,
+                  }}
+                >
+                  {stripJson(msg.content)}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         ))}
@@ -225,19 +283,29 @@ export default function AIPlanImport({ jobs, tasks, meetings, googleEvents, date
 
         {error && <p className="text-xs text-red-500 text-center">{error}</p>}
 
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleListening}
+            title={listening ? 'Stop listening' : 'Speak your message'}
+            className={`p-2 rounded-xl transition-colors flex-shrink-0 ${
+              listening
+                ? 'bg-red-500 text-white animate-pulse'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {listening ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Tell Claude what you need to get done…"
+            placeholder={listening ? 'Listening…' : 'Tell Claude what you need to get done…'}
             disabled={loading}
             className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />

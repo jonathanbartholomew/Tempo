@@ -53,6 +53,7 @@ export default function TodayTab({
   timeFormat,
   jira,
   onGoToJira,
+  timeTracking,
 }) {
   const [showCompleted, setShowCompleted] = useState(true);
   const [dragIndex, setDragIndex] = useState(null);
@@ -136,6 +137,15 @@ export default function TodayTab({
   const todayHistory = getHistoryEntry(stats, today);
   const firstName = user?.name?.split(" ")[0] || "there";
 
+  const trackedHistory = {};
+  (timeTracking?.weekEntries || []).forEach((entry) => {
+    const d = entry.date?.slice(0, 10);
+    if (!d) return;
+    if (!trackedHistory[d]) trackedHistory[d] = { trackedMinutes: 0 };
+    trackedHistory[d].trackedMinutes += entry.minutes || 0;
+  });
+  const todayTrackedMinutes = trackedHistory[today]?.trackedMinutes || 0;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
       <div className="space-y-3">
@@ -198,11 +208,60 @@ export default function TodayTab({
           tasks={tasks}
           meetings={meetings}
           googleEvents={googleEvents}
+          jiraIssues={jira?.issues || []}
           date={viewDate}
           onAddTask={onAddTask}
           onAddMeeting={onAddMeeting}
           onAiPlanImported={onAiPlanImported}
         />
+      </div>
+
+      {/* Progress row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <Timer size={15} className="text-blue-500" />
+              Time Tracked
+            </h2>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {todayTrackedMinutes}m today
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Minutes tracked across all activity, last 7 days
+          </p>
+          <ActivityChart history={trackedHistory} metric="trackedMinutes" />
+        </div>
+
+        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-4">
+          <ProgressRing
+            progress={progress}
+            size={96}
+            strokeWidth={9}
+            label={`${Math.round(progress * 100)}%`}
+            sublabel="Progress"
+          />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Today's Progress
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {completed.length} of {todaysTasks.length} tasks done
+            </p>
+            <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
+                style={{ width: `${progress * 100}%` }}
+              />
+            </div>
+            {todayHistory.xp > 0 && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5">
+                +{todayHistory.xp} XP earned today
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Row 1: Today's Plan + Calendar */}
@@ -400,17 +459,20 @@ export default function TodayTab({
           </div>
         </div>
 
-        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
             Calendar
           </h2>
-          <MonthCalendar
-            selectedDate={viewDate}
-            onSelectDate={setViewDate}
-            tasks={tasks}
-            meetings={meetings}
-            googleEvents={googleEvents}
-          />
+          <div className="flex-1">
+            <MonthCalendar
+              selectedDate={viewDate}
+              onSelectDate={setViewDate}
+              tasks={tasks}
+              meetings={meetings}
+              googleEvents={googleEvents}
+              jobs={jobs}
+            />
+          </div>
         </div>
       </div>
 
@@ -424,48 +486,6 @@ export default function TodayTab({
         />
       )}
 
-      {/* Row 2: Focus time + Progress */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-              <Timer size={15} className="text-blue-500" />
-              Focus Time
-            </h2>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {todayHistory.focusMinutes}m today
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            Minutes focused, last 7 days
-          </p>
-          <ActivityChart history={stats.history || {}} metric="focusMinutes" />
-        </div>
-
-        <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-4">
-          <ProgressRing
-            progress={progress}
-            size={96}
-            strokeWidth={9}
-            label={`${Math.round(progress * 100)}%`}
-            sublabel="Progress"
-          />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Today's Progress
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {completed.length} of {todaysTasks.length} tasks done
-            </p>
-            <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
-                style={{ width: `${progress * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

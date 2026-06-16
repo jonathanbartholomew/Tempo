@@ -11,8 +11,12 @@ import {
   Quote,
   Heart,
 } from "lucide-react";
-import logoLight from "../../assets/tempo-logo-trans.png";
-import logoDark from "../../assets/tempo-logo-dark-mode.png";
+import logoLight from "../../assets/tempo-logo-trans-right.png";
+import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
+import jiraLogo from "../../assets/jira-logo.png";
+import asanaLogo from "../../assets/asana-logo.png";
+import linearLogo from "../../assets/linear-app-logo.png";
+import claudeLogo from "../../assets/claude-logo.png";
 import scheduleUnifiedImg from "../../assets/schedule-unified.png";
 import aiPlannerImg from "../../assets/ai-planner.png";
 import calendarsImg from "../../assets/calendars.png";
@@ -175,6 +179,78 @@ const TESTIMONIALS = [
     name: "Priya M.",
     role: "Product Manager",
     initials: "PM",
+  },
+];
+
+const INTEGRATIONS = [
+  {
+    logo: jiraLogo,
+    name: "Jira",
+    logoHeight: "h-9",
+    description: "See your Jira issues in a Kanban board, start timers on tickets, and track time against them — all without leaving Tempo.",
+  },
+  {
+    logo: asanaLogo,
+    name: "Asana",
+    logoHeight: "h-6",
+    description: "Pull in Asana tasks and view them alongside your calendar so nothing slips through the cracks.",
+  },
+  {
+    logo: linearLogo,
+    name: "Linear",
+    logoHeight: "h-6",
+    description: "Surface Linear issues in your daily view and track time against engineering work the same way you track everything else.",
+  },
+  {
+    logo: claudeLogo,
+    name: "Claude AI",
+    logoHeight: "h-6",
+    description: "Describe your day and let Claude generate a prioritised plan — then import it into Tempo in one click, no extra API cost.",
+  },
+];
+
+const FEATURE_CARDS = [
+  {
+    icon: Clock,
+    title: "Time Tracking",
+    description: "Log time against tasks, tickets, or jobs with a running timer or manual entry. Week view, timeline, job breakdowns — all built in.",
+    accent: "text-blue-400",
+    glow: "bg-blue-500/10",
+  },
+  {
+    icon: CalendarDays,
+    title: "Unified Timeline",
+    description: "Tasks, meetings, and Google Calendar events merge into one chronological view so you always know what's next.",
+    accent: "text-sky-400",
+    glow: "bg-sky-500/10",
+  },
+  {
+    icon: Sparkles,
+    title: "AI Day Planner",
+    description: "Use a Claude-powered prompt to generate a full daily schedule and import it straight into Tempo — no API key required.",
+    accent: "text-violet-400",
+    glow: "bg-violet-500/10",
+  },
+  {
+    icon: Trophy,
+    title: "XP & Achievements",
+    description: "Earn XP for every task you complete, build streaks, level up, and unlock achievements. Motivation that compounds daily.",
+    accent: "text-amber-400",
+    glow: "bg-amber-500/10",
+  },
+  {
+    icon: Brain,
+    title: "Focus & Pomodoro",
+    description: "Built-in Pomodoro timer with customisable work and break intervals, per-job focus tracking, and a 7-day activity chart.",
+    accent: "text-green-400",
+    glow: "bg-green-500/10",
+  },
+  {
+    icon: CalendarPlus,
+    title: "Multi-job & Multi-account",
+    description: "Connect multiple Google accounts and colour-code everything by job or client — built for freelancers juggling several roles.",
+    accent: "text-pink-400",
+    glow: "bg-pink-500/10",
   },
 ];
 
@@ -631,6 +707,70 @@ export default function LoginScreen({ theme, onGetStarted }) {
           </div>
         </div>
 
+        {/* Integrations strip */}
+        <section aria-label="Integrations" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]">
+          <div className="max-w-5xl mx-auto">
+            <Reveal>
+              <p className="text-center text-xs font-semibold uppercase tracking-widest text-blue-400 mb-3">
+                Works with your tools
+              </p>
+              <h2 className="text-center text-3xl sm:text-4xl font-bold text-white mb-4">
+                Connect the tools <span className="text-blue-400">YOU ALREADY USE</span>
+              </h2>
+              <p className="text-center text-blue-200/60 max-w-xl mx-auto mb-14 text-sm">
+                Tempo pulls in tasks, tickets, and events from the apps you live in — so you can plan, track, and ship without context-switching.
+              </p>
+            </Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {INTEGRATIONS.map(({ logo, name, description, logoHeight = "h-6" }, i) => (
+                <FallIn key={name} delay={i * 0.1} className="h-full">
+                  <div className="h-full rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center text-center gap-4 hover:border-blue-500/40 hover:bg-white/6 transition-all duration-300">
+                    <div className="flex items-center justify-center bg-white rounded-xl w-36 h-12">
+                      <img src={logo} alt={name} className={`${logoHeight} w-auto object-contain`} />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-sm mb-1">{name}</p>
+                      <p className="text-blue-200/55 text-xs leading-relaxed">{description}</p>
+                    </div>
+                  </div>
+                </FallIn>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features grid */}
+        <section aria-label="Features" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]/80">
+          <div className="max-w-5xl mx-auto">
+            <Reveal>
+              <p className="text-center text-xs font-semibold uppercase tracking-widest text-blue-400 mb-3">
+                Everything you need
+              </p>
+              <h2 className="text-center text-3xl sm:text-4xl font-bold text-white mb-4">
+                Built for the way you <span className="text-blue-400">ACTUALLY WORK</span>
+              </h2>
+              <p className="text-center text-blue-200/60 max-w-xl mx-auto mb-14 text-sm">
+                Tempo combines a personal planner, time tracker, focus timer, and gamification engine into one lightweight tool — at an individual price point.
+              </p>
+            </Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {FEATURE_CARDS.map(({ icon: Icon, title, description, accent, glow }, i) => (
+                <FallIn key={title} delay={i * 0.08}>
+                  <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col gap-4 hover:border-white/15 hover:bg-white/6 transition-all duration-300 group">
+                    <div className={`w-10 h-10 rounded-xl ${glow} flex items-center justify-center`}>
+                      <Icon className={`w-5 h-5 ${accent}`} />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-sm mb-1">{title}</p>
+                      <p className="text-blue-200/55 text-xs leading-relaxed">{description}</p>
+                    </div>
+                  </div>
+                </FallIn>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* How it works - sticky scroll with expanding card */}
         <section
           id="how-it-works"
@@ -747,7 +887,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {TESTIMONIALS.map(({ quote, name, role, initials }, i) => (
-                <Reveal key={name} delay={i * 0.12}>
+                <FallIn key={name} delay={i * 0.12}>
                   <div className="apple-glass-static rounded-2xl p-6 flex flex-col gap-4 h-full">
                     <Quote size={20} className="text-blue-400 shrink-0" />
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed flex-1">
@@ -767,7 +907,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
                       </div>
                     </div>
                   </div>
-                </Reveal>
+                </FallIn>
               ))}
             </div>
           </div>
@@ -787,7 +927,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
               {PRICING_TIERS.map((tier, i) => (
-                <Reveal
+                <FallIn
                   key={tier.name}
                   delay={i * 0.1}
                   className={tier.highlighted ? "sm:scale-105" : ""}
@@ -843,7 +983,7 @@ export default function LoginScreen({ theme, onGetStarted }) {
                       ))}
                     </ul>
                   </div>
-                </Reveal>
+                </FallIn>
               ))}
             </div>
           </div>
@@ -951,6 +1091,41 @@ function useInView(options = {}) {
     return () => observer.disconnect();
   }, []);
   return [ref, inView];
+}
+
+function useToggleInView(threshold = 0.15) {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [threshold]);
+  return [ref, inView];
+}
+
+function FallIn({ children, delay = 0, className = "" }) {
+  const [ref, inView] = useToggleInView(0.1);
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: -70, scale: 0.82, rotate: -4 }}
+      animate={
+        inView
+          ? { opacity: 1, y: 0, scale: 1, rotate: 0 }
+          : { opacity: 0, y: -70, scale: 0.82, rotate: -4 }
+      }
+      transition={{ type: "spring", stiffness: 280, damping: 18, delay }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
 function Reveal({ children, delay = 0, className = "" }) {

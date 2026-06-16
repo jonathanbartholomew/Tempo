@@ -55,7 +55,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
       {googleEventErrors && googleEventErrors.length > 0 && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-sm text-amber-700 dark:text-amber-300">
           <AlertTriangle size={16} className="flex-shrink-0" />
@@ -112,6 +112,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
           tasks={tasks}
           meetings={meetings}
           googleEvents={googleEvents}
+          jobs={jobs}
         />
       )}
 
@@ -268,7 +269,7 @@ export default function ScheduleTab({ tasks, jobs, meetings, googleEvents, googl
         </div>
       )}
 
-      <TimeGrid date={date} meetings={meetings} jobs={jobs} googleEvents={googleEvents} onMeetingClick={setSelectedMeeting} onHideEvent={onHideEvent} timeFormat={timeFormat} />
+      <TimeGrid date={date} tasks={tasks} meetings={meetings} jobs={jobs} googleEvents={googleEvents} onMeetingClick={setSelectedMeeting} onHideEvent={onHideEvent} timeFormat={timeFormat} />
 
       {selectedMeeting && (
         <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-2">

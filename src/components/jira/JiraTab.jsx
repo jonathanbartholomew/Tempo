@@ -267,7 +267,7 @@ export default function JiraTab({ jira, onStartTimer }) {
 
   if (!status.connected) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+      <div className="max-w-6xl mx-auto px-4 py-12 text-center">
         <svg className="w-12 h-12 text-blue-400 mx-auto mb-4" viewBox="0 0 24 24" fill="currentColor">
           <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.485V1.005A1.001 1.001 0 0 0 23.013 0z" />
         </svg>
@@ -285,7 +285,7 @@ export default function JiraTab({ jira, onStartTimer }) {
   const columns   = buildColumns(filtered);
 
   return (
-    <div className="flex flex-col h-full px-4 py-6 min-h-0">
+    <div className="max-w-6xl mx-auto w-full flex flex-col h-full px-4 py-6 min-h-0">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 flex-shrink-0">
         <div className="flex items-center gap-3">

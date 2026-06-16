@@ -1056,7 +1056,7 @@ export default function TimeTab({ timeTracking, tasks, stats, jobs, onLogFocus, 
   })).filter((c) => c.minutes > 0);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
