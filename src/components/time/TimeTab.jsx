@@ -715,7 +715,7 @@ function FocusSection({ stats, jobs, onLogFocus }) {
             <span className="text-xs text-gray-500 dark:text-gray-400">{todayHistory.focusMinutes}m today</span>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Minutes focused, last 7 days</p>
-          <ActivityChart history={stats.history || {}} metric="focusMinutes" />
+          <ActivityChart history={stats.history || {}} metric="focusMinutes" color="#7c3aed" />
         </div>
         {jobBreakdown.length > 0 && (
           <div>

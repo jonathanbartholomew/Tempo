@@ -20,7 +20,7 @@ export default function AchievementsTab({ stats, jobs, meetings, earned }) {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500 dark:text-gray-400">Total XP</p>
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalXp}</p>
+            <p className="text-2xl font-bold text-teal-500 dark:text-teal-400">{stats.totalXp}</p>
           </div>
         </div>
 

@@ -256,7 +256,7 @@ export default function TodayTab({
               />
             </div>
             {todayHistory.xp > 0 && (
-              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5">
+              <p className="text-xs font-semibold text-teal-500 dark:text-teal-400 mt-1.5">
                 +{todayHistory.xp} XP earned today
               </p>
             )}

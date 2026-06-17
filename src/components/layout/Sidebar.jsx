@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import logoLight from "../../assets/tempo-logo-trans-right.png";
 import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
+import linearLogo from "../../assets/linear-just-logo.webp";
 
 function JiraIcon({ size = 18 }) {
   return (
@@ -25,10 +26,13 @@ function JiraIcon({ size = 18 }) {
 
 function LinearIcon({ size = 18 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3.5 17.5L6.5 20.5L20.5 6.5L17.5 3.5L3.5 17.5Z" opacity="0.4"/>
-      <path d="M2 14L10 22L22 10L14 2L2 14ZM4.5 14L14 4.5L19.5 10L10 19.5L4.5 14Z"/>
-    </svg>
+    <img
+      src={linearLogo}
+      alt="Linear"
+      width={size}
+      height={size}
+      style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }}
+    />
   );
 }
 
