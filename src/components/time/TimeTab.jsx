@@ -56,12 +56,9 @@ function formatDate(dateStr) {
 function offsetDate(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function todayString() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // ─── Custom category picker ───────────────────────────────────────────────────
 
@@ -873,41 +870,69 @@ function TimelineView({ entries, jobs, timeFormat }) {
 
 // ─── Week view ────────────────────────────────────────────────────────────────
 
-function fmtCell(mins) {
-  if (!mins) return null;
+function fmtHM(mins) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
+  return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-function fmtWeekDay(dateStr, timeFormat) {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' });
+const DID_YOU_KNOWS = [
+  'The human brain uses about 20 watts of power — roughly the same as a dim lightbulb. That\'s why deep thinking drains you fast.',
+  'People blink about 66% less when staring at screens. That\'s a big reason why Zoom fatigue is real.',
+  'Multitasking reduces productivity by 40%, according to studies from Stanford University.',
+  'The average office worker checks email 121 times per day — roughly once every 5 minutes.',
+  'The first webcam was created to monitor a coffee pot at the University of Cambridge in 1991.',
+  'Google once rented goats to mow the lawn at their HQ — they found it more sustainable than lawnmowers.',
+  'Slack was originally built as a communication tool for a failed video game project called Glitch.',
+  'Microsoft\'s first product wasn\'t Windows — it was a version of BASIC for the Altair 8800, released in 1975.',
+  'LinkedIn launched in 2003, a full year before Facebook\'s release in 2004.',
+  'Workers attend an average of 62 meetings per month, and over 30% are considered a waste of time.',
+  'The ideal meeting length is 25 minutes. Most attendees start losing focus after the 18-minute mark.',
+  'The average employee wastes 31 hours per month in unproductive meetings, per a study by Atlassian.',
+  'Bluetooth is named after a Viking king — Harald "Bluetooth" Gormsson, who united Denmark and Norway in the 900s.',
+  'The average rolling desk chair travels about 8 miles per year just from small movements.',
+  'You can\'t hum while holding your nose. Seriously — try it right now.',
+  'More people globally own a mobile phone than have access to a toilet: 6.6 billion phones, 4.5 billion toilets.',
+  'A group of flamingos is called a "flamboyance." Use that next time someone calls your team too loud.',
+  'Short, fun content increases information retention by 40%, according to the American Psychological Association.',
+  'Using humor in meetings improves team trust and reduces stress responses by up to 17%.',
+  'The word "deadline" originally referred to a line drawn around a Civil War prison camp — cross it, and guards would shoot.',
+  'Octopuses have three hearts, blue blood, and can unscrew jars from the inside. Overqualified for most jobs.',
+  'Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still edible.',
+  'A day on Venus is longer than a year on Venus — it rotates so slowly that it completes an orbit before one full spin.',
+  'The average person spends 6 months of their lifetime waiting for red lights to turn green.',
+  'Crows can recognize human faces and hold grudges for years. Be kind to crows.',
+  'The shortest commercial flight in the world is 1.7 miles and lasts about 90 seconds — between two Scottish islands.',
+  'There are more possible iterations of a game of chess than there are atoms in the observable universe.',
+  'The inventor of the frisbee was turned into a frisbee after he died — his ashes were molded into one, per his request.',
+  'A group of cats is called a "clowder." A group of kittens is a "kindle." Now you know.',
+  'Bananas are slightly radioactive due to their potassium content. You\'d need to eat about 10 million to feel any effect.',
+];
+
+function factForDay(dateStr) {
+  const hash = dateStr.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return DID_YOU_KNOWS[hash % DID_YOU_KNOWS.length];
 }
 
 function WeekView({ weekEntries, weekLoading, weekStart, jobs, onGoToDay, addDays }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayString();
 
-  // Group entries: key = "jobId:label:category"
-  const groups = [];
-  const groupMap = {};
-  for (const entry of weekEntries) {
-    const label = entry.task_title || entry.description || '—';
-    const key = `${entry.job_id || ''}::${label}::${entry.category}`;
-    if (!groupMap[key]) {
-      const group = { key, label, jobId: entry.job_id, category: entry.category, byDay: {} };
-      groupMap[key] = group;
-      groups.push(group);
-    }
-    const d = entry.date?.slice(0, 10) ?? entry.date;
-    groupMap[key].byDay[d] = (groupMap[key].byDay[d] || 0) + entry.minutes;
-  }
+  const [selectedDay, setSelectedDay] = useState(() =>
+    days.includes(today) ? today : days[0]
+  );
 
-  const dayTotals = days.map((d) => weekEntries.filter((e) => (e.date?.slice(0, 10) ?? e.date) === d).reduce((s, e) => s + e.minutes, 0));
+  useEffect(() => {
+    const newDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    setSelectedDay(newDays.includes(today) ? today : newDays[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart]);
+
+  const dayTotals = days.map((d) =>
+    weekEntries.filter((e) => e.date?.slice(0, 10) === d).reduce((s, e) => s + e.minutes, 0)
+  );
   const weekTotal = dayTotals.reduce((s, m) => s + m, 0);
+  const selectedEntries = weekEntries.filter((e) => e.date?.slice(0, 10) === selectedDay);
 
   if (weekLoading) return (
     <div className="flex items-center gap-2 py-16 justify-center text-gray-400">
@@ -917,101 +942,109 @@ function WeekView({ weekEntries, weekLoading, weekStart, jobs, onGoToDay, addDay
 
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/4 shadow-sm dark:shadow-none overflow-hidden">
-      {/* Header row */}
-      <div className="grid border-b border-gray-100 dark:border-white/8 bg-gray-50 dark:bg-white/4" style={{ gridTemplateColumns: '1fr repeat(7, minmax(72px,1fr)) 80px' }}>
-        <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400" />
+      {/* Day tabs */}
+      <div className="flex border-b border-gray-100 dark:border-white/8 overflow-x-auto">
         {days.map((d, i) => {
           const dt = new Date(d + 'T00:00:00');
           const isToday = d === today;
+          const isSelected = d === selectedDay;
+          const mins = dayTotals[i];
           return (
-            <button key={d} onClick={() => onGoToDay(d)}
-              className={`px-2 py-2.5 text-center border-l border-gray-100 dark:border-white/6 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors group ${isToday ? 'bg-blue-50 dark:bg-blue-500/10' : ''}`}>
-              <div className={`text-[10px] font-semibold uppercase tracking-wide ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
+            <button
+              key={d}
+              onClick={() => setSelectedDay(d)}
+              className={`relative flex-1 min-w-[72px] px-2 py-3 text-center transition-colors border-r border-gray-100 dark:border-white/6 last:border-r-0 ${
+                isSelected
+                  ? 'bg-white dark:bg-white/6'
+                  : 'bg-gray-50 dark:bg-white/2 hover:bg-gray-100 dark:hover:bg-white/4'
+              }`}
+            >
+              <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${
+                isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
+              }`}>
                 {dt.toLocaleDateString([], { weekday: 'short' })}
               </div>
-              <div className={`text-xs font-bold tabular-nums ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-200'}`}>
-                {fmtCell(dayTotals[i]) || <span className="text-gray-300 dark:text-gray-600">—</span>}
+              <div className={`text-sm font-bold tabular-nums ${
+                mins > 0
+                  ? isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'
+                  : 'text-gray-300 dark:text-gray-600'
+              }`}>
+                {fmtHM(mins)}
               </div>
+              {isSelected && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
+              )}
+              {isToday && !isSelected && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-200 dark:bg-blue-900" />
+              )}
             </button>
           );
         })}
-        <div className="px-3 py-2.5 text-center border-l border-gray-200 dark:border-white/10">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total</div>
-          <div className="text-xs font-bold text-gray-800 dark:text-gray-100 tabular-nums">{fmtCell(weekTotal) || '—'}</div>
+        {/* Week total */}
+        <div className="min-w-[80px] px-3 py-3 text-center bg-gray-50 dark:bg-white/2 border-l border-gray-200 dark:border-white/10 flex-shrink-0">
+          <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-gray-400 dark:text-gray-500">Week</div>
+          <div className={`text-sm font-bold tabular-nums ${
+            weekTotal > 0 ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'
+          }`}>
+            {fmtHM(weekTotal)}
+          </div>
         </div>
       </div>
 
-      {/* Entry rows */}
-      {groups.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-600">
-          <Clock size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No time logged this week.</p>
+      {/* Selected day content */}
+      {selectedEntries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-14 px-8 text-center min-h-48">
+          <div className="max-w-md">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Did you know?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{factForDay(selectedDay)}</p>
+          </div>
+          <button
+            onClick={() => onGoToDay(selectedDay)}
+            className="mt-6 text-xs px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/6 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            Log time for this day →
+          </button>
         </div>
       ) : (
-        <div className="divide-y divide-gray-50 dark:divide-white/4">
-          {groups.map((g) => {
-            const job = (jobs || []).find((j) => j.id === g.jobId);
-            const catMeta = CAT_MAP[g.category] || CAT_MAP.custom;
-            const CatIcon = catMeta.icon;
-            const rowTotal = Object.values(g.byDay).reduce((s, m) => s + m, 0);
-            return (
-              <div key={g.key} className="grid hover:bg-gray-50 dark:hover:bg-white/3 transition-colors" style={{ gridTemplateColumns: '1fr repeat(7, minmax(72px,1fr)) 80px' }}>
-                {/* Label cell */}
-                <div className="px-4 py-3 min-w-0">
-                  {job && (
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job.color }} />
-                      <span className="text-[10px] font-semibold truncate" style={{ color: job.color }}>{job.name}</span>
+        <div>
+          <div className="divide-y divide-gray-50 dark:divide-white/4">
+            {selectedEntries.map((entry) => {
+              const job = (jobs || []).find((j) => j.id === entry.job_id);
+              const catMeta = CAT_MAP[entry.category] || CAT_MAP.custom;
+              const CatIcon = catMeta.icon;
+              const label = entry.task_title || entry.description || '—';
+              const barColor = job?.color || CAT_COLORS[entry.category] || '#6b7280';
+              return (
+                <div key={entry.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/3 transition-colors">
+                  <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: barColor }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{label}</span>
+                      <span className={`hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${catMeta.color}`}>
+                        <CatIcon size={8} />{catMeta.label}
+                      </span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{g.label}</span>
+                    {job && (
+                      <span className="text-xs font-medium" style={{ color: job.color }}>{job.name}</span>
+                    )}
                   </div>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border mt-0.5 ${catMeta.color}`}>
-                    <CatIcon size={8} />{catMeta.label}
+                  <span className="text-sm font-bold tabular-nums text-gray-700 dark:text-gray-200 flex-shrink-0">
+                    {fmtHM(entry.minutes)}
                   </span>
                 </div>
-
-                {/* Day cells */}
-                {days.map((d) => {
-                  const mins = g.byDay[d] || 0;
-                  const isToday = d === today;
-                  return (
-                    <div key={d} className={`px-2 py-3 text-center border-l border-gray-50 dark:border-white/4 flex items-center justify-center ${isToday ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''}`}>
-                      {mins ? (
-                        <span className="text-xs font-semibold tabular-nums text-gray-700 dark:text-gray-200">{fmtCell(mins)}</span>
-                      ) : (
-                        <span className="text-gray-200 dark:text-gray-700 text-xs">—</span>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Row total */}
-                <div className="px-3 py-3 text-center border-l border-gray-100 dark:border-white/8 flex items-center justify-center">
-                  <span className="text-xs font-bold tabular-nums text-gray-600 dark:text-gray-300">{fmtCell(rowTotal)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Footer totals */}
-      {groups.length > 0 && (
-        <div className="grid border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/4" style={{ gridTemplateColumns: '1fr repeat(7, minmax(72px,1fr)) 80px' }}>
-          <div className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Week total</div>
-          {days.map((d, i) => (
-            <div key={d} className={`px-2 py-2.5 text-center border-l border-gray-100 dark:border-white/6 ${d === today ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''}`}>
-              {dayTotals[i] ? (
-                <span className="text-xs font-bold tabular-nums text-gray-700 dark:text-gray-200">{fmtCell(dayTotals[i])}</span>
-              ) : (
-                <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
-              )}
-            </div>
-          ))}
-          <div className="px-3 py-2.5 text-center border-l border-gray-200 dark:border-white/10">
-            <span className="text-xs font-bold tabular-nums text-gray-800 dark:text-gray-100">{fmtCell(weekTotal) || '—'}</span>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-white/8 bg-gray-50 dark:bg-white/3">
+            <button
+              onClick={() => onGoToDay(selectedDay)}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors"
+            >
+              Edit entries for this day →
+            </button>
+            <span className="text-sm font-bold tabular-nums text-gray-800 dark:text-gray-100">
+              {fmtHM(selectedEntries.reduce((s, e) => s + e.minutes, 0))}
+            </span>
           </div>
         </div>
       )}
@@ -1033,7 +1066,7 @@ export default function TimeTab({ timeTracking, tasks, stats, jobs, onLogFocus, 
   const [scope, setScope] = useState('day'); // 'day' | 'week'
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'timeline'
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const today = todayString();
+  const today = getTodayString();
 
   function prevWeek() { setWeekStart((w) => addDays(w, -7)); }
   function nextWeek() { setWeekStart((w) => addDays(w, 7)); }
