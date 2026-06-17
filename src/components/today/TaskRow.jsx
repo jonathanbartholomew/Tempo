@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, GripVertical, Clock, X, AlignLeft, ChevronDown, ChevronUp, Plus, CheckSquare, Timer } from 'lucide-react';
+import { Trash2, GripVertical, Clock, X, AlignLeft, ChevronDown, ChevronUp, Plus, CheckSquare, Timer, UserCheck } from 'lucide-react';
 import { getPriority, formatTime } from '../../utils/helpers';
 
 function fmtTracked(mins) {
@@ -219,6 +219,13 @@ export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, 
           </span>
         )}
 
+        {task.isAssigned && (
+          <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 whitespace-nowrap flex-shrink-0" title={`Assigned by ${task.assignedBy}`}>
+            <UserCheck size={11} />
+            {task.assignedBy}
+          </span>
+        )}
+
         {extra && <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{extra}</span>}
 
         {!hideJobBadge && job && (
@@ -245,9 +252,11 @@ export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, 
           </button>
         )}
 
-        <button onClick={() => onDelete(task.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors flex-shrink-0" aria-label="Delete task">
-          <Trash2 size={18} />
-        </button>
+        {onDelete && (
+          <button onClick={() => onDelete(task.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors flex-shrink-0" aria-label="Delete task">
+            <Trash2 size={18} />
+          </button>
+        )}
       </div>
 
       {/* Expanded panel */}

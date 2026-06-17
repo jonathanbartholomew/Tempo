@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Avatar from "../ui/Avatar";
 import {
   Sun,
   ListTodo,
@@ -131,12 +132,7 @@ export default function Sidebar({
 
   const userFooter = user && (
     <div className="px-3 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3">
-      <img
-        src={user.picture}
-        alt={user.name}
-        referrerPolicy="no-referrer"
-        className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-      />
+      <Avatar name={user.name} picture={user.picture} className="w-9 h-9 text-sm" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {user.name}

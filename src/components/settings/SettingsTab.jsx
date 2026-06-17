@@ -1,7 +1,9 @@
 import { useGoogleLogin } from '@react-oauth/google';
 import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle, CheckCircle2, Link2 } from 'lucide-react';
+import Avatar from '../ui/Avatar';
 import JobsTab from '../jobs/JobsTab';
 import MeetingsTab from '../meetings/MeetingsTab';
+import OrgPanel from '../org/OrgPanel';
 import { CALENDAR_ACCOUNT_COLORS, TIMEZONES, TIME_FORMATS } from '../../utils/helpers';
 
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -60,6 +62,8 @@ export default function SettingsTab({
   profile,
   onUpdateProfile,
   jira,
+  org,
+  orgActions,
 }) {
   const connectCalendar = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -89,7 +93,7 @@ export default function SettingsTab({
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Account</h2>
         {user && (
           <div className="flex items-center gap-3">
-            <img src={user.picture} alt={user.name} referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
+            <Avatar name={user.name} picture={user.picture} className="w-12 h-12 text-lg" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{user.name}</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{user.email}</p>
@@ -241,6 +245,11 @@ export default function SettingsTab({
       {/* Jobs */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
         <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={onAddJob} onRemoveJob={onRemoveJob} onUpdateJob={onUpdateJob} />
+      </div>
+
+      {/* Organization */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+        <OrgPanel org={org} orgActions={orgActions} />
       </div>
 
       {/* Meetings */}

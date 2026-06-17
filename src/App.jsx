@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
 import LoginScreen from './components/auth/LoginScreen';
 import SignInScreen from './components/auth/SignInScreen';
+import SignUpScreen from './components/auth/SignUpScreen';
 import TodayTab from './components/today/TodayTab';
 import TasksTab from './components/tasks/TasksTab';
 import ScheduleTab from './components/schedule/ScheduleTab';
@@ -25,6 +26,9 @@ import { useJira } from './hooks/useJira';
 import { useTimeTracking } from './hooks/useTimeTracking';
 import { DataProvider, useServerStorage, useDataLoading } from './context/DataContext';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
+import InviteAcceptScreen from './components/org/InviteAcceptScreen';
+import { useOrg } from './hooks/useOrg';
+import { useAssignedTasks } from './hooks/useAssignedTasks';
 import {
   STORAGE_KEYS,
   CALENDAR_ACCOUNT_COLORS,
@@ -41,8 +45,21 @@ import {
 
 export default function App() {
   const [showSignIn, setShowSignIn] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
   const [theme, toggleTheme] = useTheme();
-  const { auth, login, logout: authLogout, isCalendarConnected } = useAuth();
+  const { auth, login, loginWithEmail, registerWithEmail, logout: authLogout, isCalendarConnected } = useAuth();
+
+  // Detect invite token in URL or sessionStorage (persists through login flow)
+  const [inviteToken, setInviteToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('invite');
+    if (urlToken) {
+      sessionStorage.setItem('pendingInvite', urlToken);
+      window.history.replaceState({}, '', window.location.pathname);
+      return urlToken;
+    }
+    return sessionStorage.getItem('pendingInvite') || null;
+  });
 
   const muiTheme = useMemo(() => createTheme({
     palette: {
@@ -70,10 +87,43 @@ export default function App() {
   }
 
   if (!auth || auth.expiresAt <= Date.now()) {
-    return showSignIn ? (
-      <SignInScreen onLogin={login} onBack={() => setShowSignIn(false)} />
-    ) : (
-      <LoginScreen theme={theme} onGetStarted={() => setShowSignIn(true)} />
+    if (showSignUp) {
+      return (
+        <SignUpScreen
+          onGoogleLogin={login}
+          onRegister={registerWithEmail}
+          onBack={() => setShowSignUp(false)}
+          onSignIn={() => { setShowSignUp(false); setShowSignIn(true); }}
+        />
+      );
+    }
+    if (showSignIn) {
+      return (
+        <SignInScreen
+          onGoogleLogin={login}
+          onEmailLogin={loginWithEmail}
+          onBack={() => setShowSignIn(false)}
+          onSignUp={() => { setShowSignIn(false); setShowSignUp(true); }}
+        />
+      );
+    }
+    return <LoginScreen theme={theme} onGetStarted={() => setShowSignIn(true)} />;
+  }
+
+  if (inviteToken) {
+    return (
+      <InviteAcceptScreen
+        token={inviteToken}
+        auth={auth}
+        onAccepted={() => {
+          setInviteToken(null);
+          sessionStorage.removeItem('pendingInvite');
+        }}
+        onDecline={() => {
+          setInviteToken(null);
+          sessionStorage.removeItem('pendingInvite');
+        }}
+      />
     );
   }
 
@@ -100,6 +150,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   });
   const jira = useJira(auth);
   const timeTracking = useTimeTracking(auth);
+  const org = useOrg(auth);
+  const { assignedTasks, toggleAssignedTaskDone } = useAssignedTasks(auth);
   const [jobs, setJobs] = useServerStorage(STORAGE_KEYS.jobs, []);
   const [tasks, setTasks] = useServerStorage(STORAGE_KEYS.tasks, []);
   const [meetings, setMeetings] = useServerStorage(STORAGE_KEYS.meetings, []);
@@ -292,6 +344,46 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     });
 
     pushToast(`+${xp} XP — Task complete!`);
+  }
+
+  // Merge personal + assigned tasks — assigned tasks appear in all views automatically
+  const allTasks = useMemo(() => [...tasks, ...assignedTasks], [tasks, assignedTasks]);
+
+  // Unified toggle — routes to the right handler based on task origin
+  function handleToggleTask(id) {
+    if (assignedTasks.find((t) => t.id === id)) {
+      const task = assignedTasks.find((t) => t.id === id);
+      const becomingDone = !task.done;
+      toggleAssignedTaskDone(id);
+      if (becomingDone) {
+        const xp = getPriority(task.priority).xp;
+        setStats((prev) => {
+          const today = getTodayString();
+          let { streak, lastActiveDate, longestStreak } = prev;
+          if (lastActiveDate !== today) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+            lastActiveDate = today;
+            longestStreak = Math.max(longestStreak, streak);
+          }
+          const history = prev.history || {};
+          const todayEntry = history[today] || { completed: 0, xp: 0 };
+          return {
+            ...prev,
+            totalXp: prev.totalXp + xp,
+            tasksCompleted: prev.tasksCompleted + 1,
+            streak,
+            lastActiveDate,
+            longestStreak,
+            history: { ...history, [today]: { completed: todayEntry.completed + 1, xp: todayEntry.xp + xp } },
+          };
+        });
+        pushToast(`+${xp} XP — Task complete!`);
+      }
+      return;
+    }
+    toggleTask(id);
   }
 
   // --- Jobs ---
@@ -490,7 +582,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
 
       {activeTab === 'today' && (
         <TodayTab
-          tasks={tasks}
+          tasks={allTasks}
           jobs={jobs}
           meetings={meetings}
           googleEvents={visibleGoogleEvents}
@@ -499,7 +591,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onAddTask={addTask}
           onAddMeeting={addMeeting}
           onAiPlanImported={addAiPlanImport}
-          onToggleTask={toggleTask}
+          onToggleTask={handleToggleTask}
           onToggleMeeting={toggleMeeting}
           gcalAttended={gcalAttended}
           onToggleGoogleEvent={toggleGoogleEvent}
@@ -517,14 +609,14 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
 
       {activeTab === 'tasks' && (
         <TasksTab
-          tasks={tasks}
+          tasks={allTasks}
           jobs={jobs}
           meetings={meetings}
           googleEvents={visibleGoogleEvents}
           onAddTask={addTask}
-          onAddMeeting={addMeeting}
+          onAddMeeting={addAiPlanImport}
           onAiPlanImported={addAiPlanImport}
-          onToggleTask={toggleTask}
+          onToggleTask={handleToggleTask}
           onToggleMeeting={toggleMeeting}
           gcalAttended={gcalAttended}
           onToggleGoogleEvent={toggleGoogleEvent}
@@ -532,6 +624,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onEditTask={editTask}
           timeFormat={timeFormat}
           timeTracking={timeTracking}
+          org={org.org}
+          orgActions={org}
         />
       )}
 
@@ -576,7 +670,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       {activeTab === 'asana' && <UnderConstruction name="Asana" />}
 
       {activeTab === 'time' && (
-        <TimeTab timeTracking={timeTracking} tasks={tasks} meetings={meetings} googleEvents={visibleGoogleEvents} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
+        <TimeTab timeTracking={timeTracking} tasks={allTasks} meetings={meetings} googleEvents={visibleGoogleEvents} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
       )}
 
       {activeTab === 'settings' && (
@@ -611,6 +705,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           profile={profile}
           onUpdateProfile={setProfile}
           jira={jira}
+          org={org.org}
+          orgActions={org}
         />
       )}
 
