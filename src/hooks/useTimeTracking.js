@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 
+function toLocalDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateStr(new Date());
 }
 
 function addDays(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 
 function getMonday(dateStr) {
@@ -15,7 +19,7 @@ function getMonday(dateStr) {
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 
 const EMPTY_TIMER = {

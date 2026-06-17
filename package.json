@@ -11,8 +11,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.1.1",
+    "@mui/x-charts": "^9.5.0",
+    "@mui/x-scheduler": "^9.0.0-beta.1",
     "@react-oauth/google": "^0.13.5",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "motion": "^12.40.0",
     "react": "^19.2.6",

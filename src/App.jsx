@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
 import LoginScreen from './components/auth/LoginScreen';
@@ -43,6 +44,26 @@ export default function App() {
   const [theme, toggleTheme] = useTheme();
   const { auth, login, logout: authLogout, isCalendarConnected } = useAuth();
 
+  const muiTheme = useMemo(() => createTheme({
+    palette: {
+      mode: theme,
+      primary: { main: '#3b82f6' },
+      background: {
+        default: theme === 'dark' ? '#030712' : '#f9fafb',
+        paper: theme === 'dark' ? '#111827' : '#ffffff',
+      },
+    },
+    typography: { fontFamily: 'inherit' },
+    components: {
+      MuiChartsAxis: {
+        styleOverrides: {
+          tick: { stroke: theme === 'dark' ? '#4b5563' : '#d1d5db' },
+          line: { stroke: theme === 'dark' ? '#374151' : '#e5e7eb' },
+        },
+      },
+    },
+  }), [theme]);
+
   function logout() {
     authLogout();
     setShowSignIn(false);
@@ -57,16 +78,18 @@ export default function App() {
   }
 
   return (
-    <DataProvider auth={auth}>
-      <AppContent
-        theme={theme}
-        toggleTheme={toggleTheme}
-        auth={auth}
-        login={login}
-        logout={logout}
-        isCalendarConnected={isCalendarConnected}
-      />
-    </DataProvider>
+    <ThemeProvider theme={muiTheme}>
+      <DataProvider auth={auth}>
+        <AppContent
+          theme={theme}
+          toggleTheme={toggleTheme}
+          auth={auth}
+          login={login}
+          logout={logout}
+          isCalendarConnected={isCalendarConnected}
+        />
+      </DataProvider>
+    </ThemeProvider>
   );
 }
 
