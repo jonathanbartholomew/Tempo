@@ -1,16 +1,30 @@
 import { useState } from 'react';
-import { Trash2, Bell, BellOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Bell, BellOff, ChevronDown, ChevronUp, CheckCircle2, Circle } from 'lucide-react';
 import { formatDateLong, formatTime } from '../../utils/helpers';
 
-export default function MeetingCard({ meeting, job, onDelete, timeFormat }) {
+export default function MeetingCard({ meeting, job, onDelete, onToggle, timeFormat }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2" style={{ borderLeftColor: job?.color || '#9ca3af', borderLeftWidth: 4 }}>
+    <div className={`bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-2 transition-opacity ${meeting.attended ? 'opacity-60' : ''}`} style={{ borderLeftColor: job?.color || '#9ca3af', borderLeftWidth: 4 }}>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{formatDateLong(meeting.date)} · {formatTime(meeting.time, timeFormat)}</p>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{meeting.title}</h3>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {onToggle && (
+            <button
+              onClick={() => onToggle(meeting.id)}
+              className="flex-shrink-0 mt-0.5 text-gray-300 dark:text-gray-600 hover:text-green-500 dark:hover:text-green-400 transition-colors"
+              title={meeting.attended ? 'Mark as not attended' : 'Mark as attended'}
+            >
+              {meeting.attended
+                ? <CheckCircle2 size={20} className="text-green-500 dark:text-green-400" />
+                : <Circle size={20} />
+              }
+            </button>
+          )}
+          <div className="min-w-0">
+            <p className="text-xs text-gray-400 dark:text-gray-500">{formatDateLong(meeting.date)} · {formatTime(meeting.time, timeFormat)}</p>
+            <h3 className={`font-semibold text-gray-900 dark:text-gray-100 ${meeting.attended ? 'line-through opacity-50' : ''}`}>{meeting.title}</h3>
+          </div>
         </div>
         <button onClick={() => onDelete(meeting.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-500 transition-colors flex-shrink-0">
           <Trash2 size={18} />
@@ -19,7 +33,7 @@ export default function MeetingCard({ meeting, job, onDelete, timeFormat }) {
 
       <div className="flex items-center gap-2 flex-wrap text-xs">
         {job && (
-          <span className="font-medium px-2 py-1 rounded-full text-white" style={{ backgroundColor: job.color }}>
+          <span className="text-xs font-medium" style={{ color: job.color }}>
             {job.name}
           </span>
         )}
@@ -28,6 +42,11 @@ export default function MeetingCard({ meeting, job, onDelete, timeFormat }) {
           {meeting.reminder ? <Bell size={12} /> : <BellOff size={12} />}
           {meeting.reminder ? `${meeting.reminderMins}m reminder` : 'No reminder'}
         </span>
+        {meeting.attended && (
+          <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 font-medium">
+            <CheckCircle2 size={11} /> Attended · +15 XP
+          </span>
+        )}
       </div>
 
       {meeting.notes && (

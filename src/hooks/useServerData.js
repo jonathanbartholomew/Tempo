@@ -14,6 +14,7 @@ const MIGRATED_KEYS = [
   STORAGE_KEYS.focusSession,
   STORAGE_KEYS.profile,
   STORAGE_KEYS.calendarAccounts,
+  STORAGE_KEYS.gcalAttended,
 ];
 
 const MIGRATION_FLAG = 'tempo_server_migrated';

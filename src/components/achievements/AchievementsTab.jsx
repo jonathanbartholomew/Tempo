@@ -3,9 +3,9 @@ import { ACHIEVEMENTS, TIERED_ACHIEVEMENTS } from '../../data/achievements';
 import { getLevelInfo } from '../../utils/helpers';
 import { CheckCircle2, Flame, Trophy, Briefcase } from 'lucide-react';
 
-export default function AchievementsTab({ stats, jobs, meetings, earned }) {
+export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, earned }) {
   const level = getLevelInfo(stats.totalXp);
-  const context = { stats, jobs, meetings };
+  const context = { stats, jobs, meetings, gcalAttended };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">

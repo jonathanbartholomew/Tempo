@@ -15,7 +15,7 @@ function generateItemId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, dragHandleProps, timeFormat, trackedMinutes }) {
+export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, dragHandleProps, timeFormat, trackedMinutes, hideJobBadge = false }) {
   const priority = getPriority(task.priority);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(task.title);
@@ -108,12 +108,20 @@ export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, 
 
   return (
     <div
-      className={`rounded-xl border transition-colors ${
+      className={`relative rounded-xl border transition-colors ${
         task.done
           ? 'bg-gray-50 dark:bg-gray-900/50 border-gray-100 dark:border-gray-800'
           : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
       }`}
+      style={job?.color ? { borderLeftColor: job.color, borderLeftWidth: 4 } : undefined}
     >
+      {job && (
+        <div className="absolute left-0 top-0 h-full w-2 group/jobtip z-10 cursor-default">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover/jobtip:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg z-50">
+            {job.name}
+          </span>
+        </div>
+      )}
       {/* Main row */}
       <div className="flex items-center gap-3 p-3">
         {dragHandleProps && (
@@ -213,8 +221,8 @@ export default function TaskRow({ task, job, onToggle, onDelete, onEdit, extra, 
 
         {extra && <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{extra}</span>}
 
-        {job && (
-          <span className="text-xs font-medium px-2 py-1 rounded-full text-white whitespace-nowrap" style={{ backgroundColor: job.color }}>
+        {!hideJobBadge && job && (
+          <span className="text-xs font-medium whitespace-nowrap" style={{ color: job.color }}>
             {job.name}
           </span>
         )}

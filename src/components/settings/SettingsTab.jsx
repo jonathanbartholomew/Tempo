@@ -48,9 +48,11 @@ export default function SettingsTab({
   connectedAccounts,
   onAddJob,
   onRemoveJob,
+  onUpdateJob,
   meetings,
   onAddMeeting,
   onDeleteMeeting,
+  onToggleMeeting,
   timezone,
   onSetTimezone,
   timeFormat,
@@ -238,12 +240,12 @@ export default function SettingsTab({
 
       {/* Jobs */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={onAddJob} onRemoveJob={onRemoveJob} />
+        <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={onAddJob} onRemoveJob={onRemoveJob} onUpdateJob={onUpdateJob} />
       </div>
 
       {/* Meetings */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={onAddMeeting} onDeleteMeeting={onDeleteMeeting} timeFormat={timeFormat} />
+        <MeetingsTab meetings={meetings} jobs={jobs} onAddMeeting={onAddMeeting} onDeleteMeeting={onDeleteMeeting} onToggleMeeting={onToggleMeeting} timeFormat={timeFormat} />
       </div>
 
       {/* Connected Apps */}

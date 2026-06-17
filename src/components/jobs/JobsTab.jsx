@@ -3,12 +3,22 @@ import { Plus, X } from 'lucide-react';
 import JobCard from './JobCard';
 import { JOB_COLORS, JOB_TYPES } from '../../utils/helpers';
 
-export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRemoveJob }) {
+function isValidHex(v) {
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
+}
+
+export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRemoveJob, onUpdateJob }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState(JOB_TYPES[1]);
   const [color, setColor] = useState(JOB_COLORS[0].value);
+  const [hexInput, setHexInput] = useState(JOB_COLORS[0].value);
   const [googleAccountEmail, setGoogleAccountEmail] = useState('');
+
+  function pickColor(val) {
+    setColor(val);
+    setHexInput(val);
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -17,7 +27,7 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
     onAddJob({ name: trimmed, type, color, googleAccountEmail: googleAccountEmail || null });
     setName('');
     setType(JOB_TYPES[1]);
-    setColor(JOB_COLORS[0].value);
+    pickColor(JOB_COLORS[0].value);
     setGoogleAccountEmail('');
     setShowForm(false);
   }
@@ -53,17 +63,36 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {JOB_COLORS.map((c) => (
               <button
                 key={c.value}
                 type="button"
-                onClick={() => setColor(c.value)}
+                onClick={() => pickColor(c.value)}
                 className={`w-8 h-8 rounded-full transition-transform ${color === c.value ? 'ring-2 ring-offset-2 dark:ring-offset-gray-900 ring-gray-400 scale-110' : ''}`}
                 style={{ backgroundColor: c.value }}
                 aria-label={c.name}
               />
             ))}
+            <label
+              className={`relative w-8 h-8 rounded-full cursor-pointer transition-transform overflow-hidden flex-shrink-0 ${!JOB_COLORS.find(c => c.value === color) ? 'ring-2 ring-offset-2 dark:ring-offset-gray-900 ring-gray-400 scale-110' : ''}`}
+              style={{ background: !JOB_COLORS.find(c => c.value === color) ? color : 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' }}
+              title="Custom color"
+            >
+              <input type="color" value={color} onChange={(e) => pickColor(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+            </label>
+            <input
+              type="text"
+              value={hexInput}
+              onChange={(e) => {
+                setHexInput(e.target.value);
+                const v = e.target.value.startsWith('#') ? e.target.value : '#' + e.target.value;
+                if (isValidHex(v)) setColor(v);
+              }}
+              placeholder="#000000"
+              maxLength={7}
+              className="w-24 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-mono text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           {connectedAccounts.length > 0 && (
@@ -103,6 +132,8 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
                 completed={completed}
                 pending={jobTasks.length - completed}
                 onRemove={onRemoveJob}
+                onUpdate={onUpdateJob}
+                connectedAccounts={connectedAccounts}
               />
             );
           })}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import {
   CalendarDays,
   Sparkles,
@@ -43,21 +43,21 @@ const SLIDES = [
     icon: Clock,
     title: "Today's schedule, unified",
     description:
-      "Tasks, meetings, and Google Calendar events merge into one chronological timeline — so you always know what's next.",
+      "Tasks from Jira, meetings from Google Calendar, and your own to-dos — merged into one chronological timeline. No more switching between five tabs to know what's next.",
     bgImage: scheduleUnifiedImg,
   },
   {
     icon: Sparkles,
     title: "AI Day Planner",
     description:
-      "Generate a tailored daily plan with Claude and import it straight into Tempo — no extra API costs on top of your subscription.",
+      "Describe your day to our planning agent and get a fully structured agenda — tasks scheduled, priorities set, meetings blocked. Import it in one click. Included with every Tempo subscription.",
     bgImage: aiPlannerImg,
   },
   {
     icon: CalendarDays,
     title: "Every calendar, one view",
     description:
-      "Connect multiple Google accounts and see every meeting and event from each account, color-coded and in sync.",
+      "Connect multiple Google accounts across jobs, clients, and personal life. Every event color-coded by role — so nothing slips through the cracks.",
     bgImage: calendarsImg,
   },
   {
@@ -82,9 +82,9 @@ const STEPS = [
   },
   {
     icon: Brain,
-    title: "Plan your day",
+    title: "Plan and manage your work",
     description:
-      "Add tasks and meetings yourself, or copy a prompt to Claude and import the AI-generated plan in one click.",
+      "Add tasks, manage projects, and pull in tickets from Jira or Linear. Or let Claude generate your full day plan and import it in one click.",
   },
   {
     icon: PartyPopper,
@@ -105,7 +105,8 @@ const PRICING_TIERS = [
     name: "Personal",
     price: "$12",
     suffix: "/ month",
-    description: "For individuals who want an AI-powered edge on their day.",
+    description:
+      "For professionals and freelancers who want their tools, time, and day in one place.",
     cta: "Get started",
     highlighted: true,
     badge: "Most popular",
@@ -125,7 +126,8 @@ const PRICING_TIERS = [
     name: "Team",
     price: "$29",
     suffix: "/ user / month",
-    description: "For small teams who want to move fast and stay aligned.",
+    description:
+      "For teams who want shared visibility, project tracking, and built-in recognition — without stitching together five tools.",
     cta: "Get started",
     features: [
       "Everything in Personal",
@@ -135,6 +137,7 @@ const PRICING_TIERS = [
       "Shared task boards",
       "Team achievements & leaderboards",
       "Team analytics & reporting",
+      "Custom team achievements & rewards",
       "Priority support",
     ],
   },
@@ -142,7 +145,8 @@ const PRICING_TIERS = [
     name: "Enterprise",
     price: "Contact us",
     suffix: "",
-    description: "For organizations that need full control at scale.",
+    description:
+      "For organizations that need everything unified — with corporate rewards, compliance, and dedicated support.",
     cta: "Contact sales",
     features: [
       "Everything in Team",
@@ -152,6 +156,7 @@ const PRICING_TIERS = [
       "Custom SSO & SCIM provisioning",
       "Org-wide analytics & exports",
       "Custom integrations",
+      "Corporate rewards catalog & integrations",
       "Dedicated success manager",
       "SLA & compliance support",
     ],
@@ -187,25 +192,29 @@ const INTEGRATIONS = [
     logo: jiraLogo,
     name: "Jira",
     logoHeight: "h-9",
-    description: "See your Jira issues in a Kanban board, start timers on tickets, and track time against them — all without leaving Tempo.",
+    description:
+      "See your Jira issues in a Kanban board, start timers on tickets, and track time against them — all without leaving Tempo.",
   },
   {
     logo: asanaLogo,
     name: "Asana",
     logoHeight: "h-6",
-    description: "Pull in Asana tasks and view them alongside your calendar so nothing slips through the cracks.",
+    description:
+      "Pull in Asana tasks and view them alongside your calendar so nothing slips through the cracks.",
   },
   {
     logo: linearLogo,
     name: "Linear",
     logoHeight: "h-6",
-    description: "Surface Linear issues in your daily view and track time against engineering work the same way you track everything else.",
+    description:
+      "Surface Linear issues in your daily view and track time against engineering work the same way you track everything else.",
   },
   {
     logo: claudeLogo,
     name: "Claude AI",
     logoHeight: "h-6",
-    description: "Describe your day and let Claude generate a prioritised plan — then import it into Tempo in one click, no extra API cost.",
+    description:
+      "Describe your day and let Claude generate a prioritized plan, then import it into Tempo in one click. AI planning is included with your Tempo subscription.",
   },
 ];
 
@@ -213,42 +222,48 @@ const FEATURE_CARDS = [
   {
     icon: Clock,
     title: "Time Tracking",
-    description: "Log time against tasks, tickets, or jobs with a running timer or manual entry. Week view, timeline, job breakdowns — all built in.",
+    description:
+      "Log time against tasks, tickets, or jobs with a running timer or manual entry. Week view, timeline, job breakdowns — all built in.",
     accent: "text-blue-400",
     glow: "bg-blue-500/10",
   },
   {
     icon: CalendarDays,
     title: "Unified Timeline",
-    description: "Tasks, meetings, and Google Calendar events merge into one chronological view so you always know what's next.",
+    description:
+      "Tasks from Jira or Linear, meetings from Google Calendar, and your own to-dos — all merged into one timeline. One view to rule your whole day.",
     accent: "text-sky-400",
     glow: "bg-sky-500/10",
   },
   {
     icon: Sparkles,
     title: "AI Day Planner",
-    description: "Use a Claude-powered prompt to generate a full daily schedule and import it straight into Tempo — no API key required.",
+    description:
+      "Use a Claude-powered prompt to generate a full daily schedule and import it straight into Tempo in one click. AI planning is included with your Tempo subscription.",
     accent: "text-violet-400",
     glow: "bg-violet-500/10",
   },
   {
     icon: Trophy,
     title: "XP & Achievements",
-    description: "Earn XP for every task you complete, build streaks, level up, and unlock achievements. Motivation that compounds daily.",
+    description:
+      "Earn XP for every task completed and meeting attended. Build streaks, unlock achievements, and level up. Corporate teams can attach real rewards — gift cards, perks, and more.",
     accent: "text-amber-400",
     glow: "bg-amber-500/10",
   },
   {
     icon: Brain,
     title: "Focus & Pomodoro",
-    description: "Built-in Pomodoro timer with customisable work and break intervals, per-job focus tracking, and a 7-day activity chart.",
+    description:
+      "Built-in Pomodoro timer with customizable intervals, per-job focus tracking, and a 7-day chart. Stay in flow without leaving Tempo.",
     accent: "text-green-400",
     glow: "bg-green-500/10",
   },
   {
     icon: CalendarPlus,
     title: "Multi-job & Multi-account",
-    description: "Connect multiple Google accounts and colour-code everything by job or client — built for freelancers juggling several roles.",
+    description:
+      "Connect multiple Google accounts and colour-code everything by job or client — built for freelancers juggling several roles.",
     accent: "text-pink-400",
     glow: "bg-pink-500/10",
   },
@@ -498,13 +513,13 @@ export default function LoginScreen({ theme, onGetStarted }) {
             <span aria-live="polite" aria-atomic="true">
               Get things{" "}
               <FlipWords
-                words={["done", "organized", "scheduled"]}
+                words={["done", "shipped", "tracked", "organized"]}
                 className="text-blue-400 px-0"
               />
             </span>
           </h1>
           <p className="mt-4 max-w-xl text-base sm:text-lg text-white/80 drop-shadow">
-            Tasks, meetings, and Google Calendar — together in one simple,
+            Tasks, meetings, and calendar events — together in one simple,
             gamified daily planner with AI-assisted planning built right in.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
@@ -685,7 +700,8 @@ export default function LoginScreen({ theme, onGetStarted }) {
                 <span className="text-blue-400 uppercase">move fast</span>
               </h2>
               <p className="mt-2 text-blue-200/60 text-sm">
-                Thousands of professionals plan their day with Tempo
+                Freelancers, teams, and companies use Tempo to stay focused and
+                ship faster
               </p>
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
@@ -708,65 +724,94 @@ export default function LoginScreen({ theme, onGetStarted }) {
         </div>
 
         {/* Integrations strip */}
-        <section aria-label="Integrations" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]">
+        <section
+          aria-label="Integrations"
+          className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]"
+        >
           <div className="max-w-5xl mx-auto">
             <Reveal>
               <p className="text-center text-xs font-semibold uppercase tracking-widest text-blue-400 mb-3">
                 Works with your tools
               </p>
               <h2 className="text-center text-3xl sm:text-4xl font-bold text-white mb-4">
-                Connect the tools <span className="text-blue-400">YOU ALREADY USE</span>
+                Connect the tools{" "}
+                <span className="text-blue-400">YOU ALREADY USE</span>
               </h2>
               <p className="text-center text-blue-200/60 max-w-xl mx-auto mb-14 text-sm">
-                Tempo pulls in tasks, tickets, and events from the apps you live in — so you can plan, track, and ship without context-switching.
+                Tempo pulls in tasks, tickets, and events from the apps you live
+                in — so you can plan, track, and ship without context-switching.
               </p>
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {INTEGRATIONS.map(({ logo, name, description, logoHeight = "h-6" }, i) => (
-                <FallIn key={name} delay={i * 0.1} className="h-full">
-                  <div className="h-full rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center text-center gap-4 hover:border-blue-500/40 hover:bg-white/6 transition-all duration-300">
-                    <div className="flex items-center justify-center bg-white rounded-xl w-36 h-12">
-                      <img src={logo} alt={name} className={`${logoHeight} w-auto object-contain`} />
+              {INTEGRATIONS.map(
+                ({ logo, name, description, logoHeight = "h-6" }, i) => (
+                  <FallIn key={name} delay={i * 0.1} className="h-full">
+                    <div className="h-full rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col items-center text-center gap-4 hover:border-blue-500/40 hover:bg-white/6 transition-all duration-300">
+                      <div className="flex items-center justify-center bg-white rounded-xl w-36 h-12">
+                        <img
+                          src={logo}
+                          alt={name}
+                          className={`${logoHeight} w-auto object-contain`}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm mb-1">
+                          {name}
+                        </p>
+                        <p className="text-blue-200/55 text-xs leading-relaxed">
+                          {description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm mb-1">{name}</p>
-                      <p className="text-blue-200/55 text-xs leading-relaxed">{description}</p>
-                    </div>
-                  </div>
-                </FallIn>
-              ))}
+                  </FallIn>
+                ),
+              )}
             </div>
           </div>
         </section>
 
         {/* Features grid */}
-        <section aria-label="Features" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]/80">
+        <section
+          aria-label="Features"
+          className="py-20 px-4 sm:px-6 lg:px-8 bg-[#05062d]/80"
+        >
           <div className="max-w-5xl mx-auto">
             <Reveal>
               <p className="text-center text-xs font-semibold uppercase tracking-widest text-blue-400 mb-3">
                 Everything you need
               </p>
               <h2 className="text-center text-3xl sm:text-4xl font-bold text-white mb-4">
-                Built for the way you <span className="text-blue-400">ACTUALLY WORK</span>
+                Built for the way you{" "}
+                <span className="text-blue-400">ACTUALLY WORK</span>
               </h2>
               <p className="text-center text-blue-200/60 max-w-xl mx-auto mb-14 text-sm">
-                Tempo combines a personal planner, time tracker, focus timer, and gamification engine into one lightweight tool — at an individual price point.
+                Tempo combines a personal planner, time tracker, focus timer,
+                and gamification engine into one lightweight tool — at an
+                individual price point.
               </p>
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {FEATURE_CARDS.map(({ icon: Icon, title, description, accent, glow }, i) => (
-                <FallIn key={title} delay={i * 0.08}>
-                  <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col gap-4 hover:border-white/15 hover:bg-white/6 transition-all duration-300 group">
-                    <div className={`w-10 h-10 rounded-xl ${glow} flex items-center justify-center`}>
-                      <Icon className={`w-5 h-5 ${accent}`} />
+              {FEATURE_CARDS.map(
+                ({ icon: Icon, title, description, accent, glow }, i) => (
+                  <FallIn key={title} delay={i * 0.08}>
+                    <div className="rounded-2xl border border-white/8 bg-white/4 p-6 flex flex-col gap-4 hover:border-white/15 hover:bg-white/6 transition-all duration-300 group">
+                      <div
+                        className={`w-10 h-10 rounded-xl ${glow} flex items-center justify-center`}
+                      >
+                        <Icon className={`w-5 h-5 ${accent}`} />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm mb-1">
+                          {title}
+                        </p>
+                        <p className="text-blue-200/55 text-xs leading-relaxed">
+                          {description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm mb-1">{title}</p>
-                      <p className="text-blue-200/55 text-xs leading-relaxed">{description}</p>
-                    </div>
-                  </div>
-                </FallIn>
-              ))}
+                  </FallIn>
+                ),
+              )}
             </div>
           </div>
         </section>
@@ -922,7 +967,8 @@ export default function LoginScreen({ theme, onGetStarted }) {
                 <span className="text-blue-400">HOW YOU WORK</span>
               </h2>
               <p className="mt-2 text-sm sm:text-base text-slate-400">
-                From solo professionals to entire organizations — Tempo scales with you.
+                From solo professionals to entire organizations — Tempo scales
+                with you.
               </p>
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
@@ -934,7 +980,9 @@ export default function LoginScreen({ theme, onGetStarted }) {
                 >
                   <div
                     className={`relative rounded-2xl p-6 flex flex-col ${
-                      tier.highlighted ? "apple-glass-static-blue" : "apple-glass-static"
+                      tier.highlighted
+                        ? "apple-glass-static-blue"
+                        : "apple-glass-static"
                     }`}
                   >
                     {tier.badge && (
@@ -994,10 +1042,13 @@ export default function LoginScreen({ theme, onGetStarted }) {
           <div className="relative z-10 max-w-3xl mx-auto px-4 py-16 text-center">
             <Reveal>
               <h2 className="text-3xl sm:text-5xl font-extrabold text-white leading-tight">
-                Ready to find your <span className="text-blue-400">Tempo?</span>
+                Stop switching tabs.
+                <br />
+                <span className="text-blue-400">Find your Tempo.</span>
               </h2>
               <p className="mt-4 text-lg text-blue-200/70">
-                Connect your calendars, let AI plan your day, and start building momentum.
+                Connect your tools, let AI organize your day, and build the kind
+                of momentum that compounds.
               </p>
               <div className="mt-8">
                 <button
@@ -1059,8 +1110,19 @@ export default function LoginScreen({ theme, onGetStarted }) {
                 © {new Date().getFullYear()} Tempo. All rights reserved.
               </p>
               <p className="text-xs text-slate-500 flex items-center gap-1">
-                Product made with <Heart size={11} className="text-blue-500 fill-blue-500" aria-hidden="true" /> by{" "}
-                <a href="https://daedabyte.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-400 transition-colors">
+                Product made with{" "}
+                <Heart
+                  size={11}
+                  className="text-blue-500 fill-blue-500"
+                  aria-hidden="true"
+                />{" "}
+                by{" "}
+                <a
+                  href="https://daedabyte.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-blue-400 transition-colors"
+                >
                   Daedabyte
                 </a>
               </p>
@@ -1199,8 +1261,14 @@ function ScrollProgressBar() {
 function SectionGlow() {
   return (
     <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-500/15 blur-3xl animate-drift" style={{ willChange: 'transform' }} />
-      <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-purple-500/10 blur-3xl animate-drift-reverse" style={{ willChange: 'transform' }} />
+      <div
+        className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-500/15 blur-3xl animate-drift"
+        style={{ willChange: "transform" }}
+      />
+      <div
+        className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-purple-500/10 blur-3xl animate-drift-reverse"
+        style={{ willChange: "transform" }}
+      />
     </div>
   );
 }

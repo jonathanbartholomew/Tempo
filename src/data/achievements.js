@@ -71,6 +71,23 @@ export const TIERED_ACHIEVEMENTS = [
     ],
   },
   {
+    id: 'attendance',
+    icon: 'CalendarCheck',
+    title: 'Show Up',
+    getValue: (ctx) => {
+      const appAttended = (ctx.meetings || []).filter(m => m.attended).length;
+      const gcalAttended = Object.values(ctx.gcalAttended || {}).filter(v => v.attended).length;
+      return appAttended + gcalAttended;
+    },
+    tiers: [
+      { level: 1, threshold: 5,   xp: 150,  description: 'Attend 5 meetings'   },
+      { level: 2, threshold: 20,  xp: 400,  description: 'Attend 20 meetings'  },
+      { level: 3, threshold: 50,  xp: 1000, description: 'Attend 50 meetings'  },
+      { level: 4, threshold: 100, xp: 2000, description: 'Attend 100 meetings' },
+      { level: 5, threshold: 250, xp: 5000, description: 'Attend 250 meetings' },
+    ],
+  },
+  {
     id: 'jobs',
     icon: 'Layers',
     title: 'Portfolio Builder',

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Clock, Plus, Pencil, Trash2, Check, X, ChevronLeft, ChevronRight, ChevronDown,
   Loader2, Timer, ListTodo, Tag, Layers, Play, Pause, Square, AlertCircle,
-  RotateCcw, SkipForward, Briefcase, List, GanttChart,
+  RotateCcw, SkipForward, Briefcase, List, GanttChart, Calendar, CalendarSearch,
 } from 'lucide-react';
 import ProgressRing from '../today/ProgressRing';
 import ActivityChart from '../today/ActivityChart';
@@ -13,7 +13,8 @@ const CATEGORIES = [
   { id: 'task',   label: 'Task',   icon: ListTodo, dot: 'bg-blue-500',   text: 'text-blue-600 dark:text-blue-400',     bg: 'bg-blue-500/12 dark:bg-blue-500/15',   border: 'border-blue-500/30',   color: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25' },
   { id: 'ticket', label: 'Ticket', icon: Tag,      dot: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/12 dark:bg-purple-500/15', border: 'border-purple-500/30', color: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25' },
   { id: 'focus',  label: 'Focus',  icon: Timer,    dot: 'bg-amber-500',  text: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-500/12 dark:bg-amber-500/15',  border: 'border-amber-500/30',  color: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25' },
-  { id: 'custom', label: 'Custom', icon: Layers,   dot: 'bg-teal-500',   text: 'text-teal-600 dark:text-teal-400',     bg: 'bg-teal-500/12 dark:bg-teal-500/15',   border: 'border-teal-500/30',   color: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/25' },
+  { id: 'meeting', label: 'Meeting', icon: Calendar, dot: 'bg-green-500',  text: 'text-green-600 dark:text-green-400',   bg: 'bg-green-500/12 dark:bg-green-500/15',  border: 'border-green-500/30',  color: 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/25' },
+  { id: 'custom',  label: 'Custom',  icon: Layers,   dot: 'bg-teal-500',   text: 'text-teal-600 dark:text-teal-400',     bg: 'bg-teal-500/12 dark:bg-teal-500/15',   border: 'border-teal-500/30',   color: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/25' },
 ];
 
 const CAT_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
@@ -120,10 +121,9 @@ function CategoryPicker({ value, onChange, size = 'md' }) {
   );
 }
 
-function TaskPicker({ value, onChange, tasks }) {
+function ItemPicker({ value, onChange, tasks, meetings, googleEvents, jobs }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const selected = tasks.find((t) => t.id === value) || null;
 
   useEffect(() => {
     if (!open) return;
@@ -132,43 +132,91 @@ function TaskPicker({ value, onChange, tasks }) {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  const hasTasks = (tasks || []).length > 0;
+  const hasMeetings = (meetings || []).length > 0;
+  const hasGcal = (googleEvents || []).length > 0;
+  const hasAny = hasTasks || hasMeetings || hasGcal;
+
+  let selectedLabel = 'Pick an item…';
+  let SelectedIcon = ListTodo;
+  if (value) {
+    const [type, id] = value.split(':', 2);
+    if (type === 'task') { const t = (tasks || []).find((t) => t.id === id); if (t) { selectedLabel = t.title; SelectedIcon = ListTodo; } }
+    if (type === 'meeting') { const m = (meetings || []).find((m) => m.id === id); if (m) { selectedLabel = m.title; SelectedIcon = Calendar; } }
+    if (type === 'gcal') { const e = (googleEvents || []).find((e) => e.id === id); if (e) { selectedLabel = e.title; SelectedIcon = CalendarSearch; } }
+  }
+
+  function select(type, item) {
+    let jobId = null;
+    if (type === 'task') jobId = item.jobId || null;
+    if (type === 'meeting') jobId = item.jobId || null;
+    if (type === 'gcal') {
+      const job = (jobs || []).find((j) => j.googleAccountEmail === item.accountEmail);
+      jobId = job?.id || null;
+    }
+    onChange({ key: `${type}:${item.id}`, title: item.title, jobId, category: (type === 'task' ? 'task' : 'meeting') });
+    setOpen(false);
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/6 text-gray-700 dark:text-gray-300 hover:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors max-w-48 font-medium"
+        className="flex items-center gap-2 text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/6 text-gray-700 dark:text-gray-300 hover:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors max-w-52 font-medium"
       >
-        <ListTodo size={13} className="flex-shrink-0 text-gray-400 dark:text-gray-500" />
-        <span className="truncate">{selected ? selected.title : 'Pick a task…'}</span>
+        <SelectedIcon size={13} className="flex-shrink-0 text-gray-400 dark:text-gray-500" />
+        <span className="truncate">{value ? selectedLabel : 'Pick an item…'}</span>
         <ChevronDown size={12} className="opacity-60 ml-auto flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-64 rounded-xl border border-gray-200 dark:border-white/12 bg-white dark:bg-[#0e1133] shadow-xl overflow-hidden py-1">
+        <div className="absolute z-50 top-full left-0 mt-1 w-72 rounded-xl border border-gray-200 dark:border-white/12 bg-white dark:bg-[#0e1133] shadow-xl overflow-hidden py-1 max-h-72 overflow-y-auto">
           {value && (
-            <button
-              type="button"
-              onClick={() => { onChange(''); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/6 transition-colors"
-            >
+            <button type="button" onClick={() => { onChange(null); setOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/6 transition-colors">
               <X size={12} /> Clear selection
             </button>
           )}
-          {tasks.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { onChange(t.id); setOpen(false); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left
-                ${value === t.id
-                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/6'}`}
-            >
-              <span className="flex-1 truncate">{t.title}</span>
-              {value === t.id && <Check size={11} className="flex-shrink-0" />}
-            </button>
-          ))}
+          {!hasAny && <p className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">No items for today</p>}
+          {hasTasks && (
+            <>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5"><ListTodo size={9} />Tasks</p>
+              {(tasks || []).map((t) => (
+                <button key={t.id} type="button" onClick={() => select('task', t)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${value === `task:${t.id}` ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/6'}`}>
+                  <span className="flex-1 truncate">{t.title}</span>
+                  {value === `task:${t.id}` && <Check size={11} className="flex-shrink-0" />}
+                </button>
+              ))}
+            </>
+          )}
+          {hasMeetings && (
+            <>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5"><Calendar size={9} />Meetings</p>
+              {(meetings || []).map((m) => (
+                <button key={m.id} type="button" onClick={() => select('meeting', m)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${value === `meeting:${m.id}` ? 'bg-green-500/10 text-green-600 dark:text-green-400 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/6'}`}>
+                  <span className="flex-1 truncate">{m.title}</span>
+                  {m.time && <span className="text-xs text-gray-400 flex-shrink-0">{m.time}</span>}
+                  {value === `meeting:${m.id}` && <Check size={11} className="flex-shrink-0" />}
+                </button>
+              ))}
+            </>
+          )}
+          {hasGcal && (
+            <>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5"><CalendarSearch size={9} />Calendar</p>
+              {(googleEvents || []).map((e) => (
+                <button key={e.id} type="button" onClick={() => select('gcal', e)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${value === `gcal:${e.id}` ? 'bg-green-500/10 text-green-600 dark:text-green-400 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/6'}`}>
+                  <span className="flex-1 truncate">{e.title}</span>
+                  {e.time && <span className="text-xs text-gray-400 flex-shrink-0">{e.time}</span>}
+                  {value === `gcal:${e.id}` && <Check size={11} className="flex-shrink-0" />}
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -316,10 +364,10 @@ function TimerWidget({ timer, onPause, onResume, onStop, onDiscard, onDescriptio
 
 // ─── Add / start form ─────────────────────────────────────────────────────────
 
-function AddEntryForm({ onAdd, onStartTimer, todayTasks, jobs }) {
+function AddEntryForm({ onAdd, onStartTimer, todayTasks, todayMeetings, todayGoogleEvents, jobs }) {
   const [mode, setMode] = useState('manual');
-  const [selectedTaskId, setSelectedTaskId] = useState('');
-  const [taskTitle, setTaskTitle] = useState('');
+  const [selectedKey, setSelectedKey] = useState('');
+  const [itemTitle, setItemTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('task');
   const [jobId, setJobId] = useState(null);
@@ -327,52 +375,56 @@ function AddEntryForm({ onAdd, onStartTimer, todayTasks, jobs }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  function handleTaskSelect(taskId) {
-    setSelectedTaskId(taskId);
-    if (taskId) {
-      const task = todayTasks.find((t) => t.id === taskId);
-      if (task) {
-        setTaskTitle(task.title);
-        setCategory('task');
-        if (task.jobId) setJobId(task.jobId);
-      }
-    } else {
-      setTaskTitle('');
+  function handleItemSelect(picked) {
+    if (!picked) {
+      setSelectedKey(''); setItemTitle(''); setJobId(null);
+      return;
     }
+    setSelectedKey(picked.key);
+    setItemTitle(picked.title);
+    setCategory(picked.category);
+    if (picked.jobId) setJobId(picked.jobId);
   }
 
   function reset() {
-    setDescription(''); setTime(''); setSelectedTaskId(''); setTaskTitle(''); setJobId(null);
+    setDescription(''); setTime(''); setSelectedKey(''); setItemTitle(''); setJobId(null);
   }
 
   async function submitManual(e) {
     e.preventDefault();
     const minutes = parseTimeInput(time);
-    if (!taskTitle && !description.trim()) { setError('Add a task or description.'); return; }
+    if (!itemTitle && !description.trim()) { setError('Pick an item or add a description.'); return; }
     if (!minutes) { setError('Enter a valid time (e.g. 30, 1h, 1h 30m).'); return; }
     setError('');
     setSaving(true);
-    const ok = await onAdd({ description: description.trim(), category, minutes, jobId, taskTitle: taskTitle || null });
+    const ok = await onAdd({ description: description.trim(), category, minutes, jobId, taskTitle: itemTitle || null });
     if (ok) reset();
     setSaving(false);
   }
 
   function submitTimer() {
-    if (!taskTitle && !description.trim()) { setError('Add a task or description first.'); return; }
+    if (!itemTitle && !description.trim()) { setError('Pick an item or add a description first.'); return; }
     setError('');
-    onStartTimer({ description: description.trim(), category, taskId: selectedTaskId || null, taskTitle: taskTitle || null, jobId });
+    const [type, id] = selectedKey ? selectedKey.split(':', 2) : [];
+    onStartTimer({ description: description.trim(), category, taskId: type === 'task' ? id : null, taskTitle: itemTitle || null, jobId });
     reset();
   }
 
-  const hasTask = !!taskTitle;
+  const hasItem = !!itemTitle;
+  const isMeeting = category === 'meeting';
 
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/4 shadow-sm dark:shadow-none p-4 space-y-3">
-      {/* Row 1: task + job + category */}
+      {/* Row 1: item picker + job + category + mode */}
       <div className="flex gap-2 flex-wrap items-center">
-        {todayTasks.length > 0 && (
-          <TaskPicker value={selectedTaskId} onChange={handleTaskSelect} tasks={todayTasks} />
-        )}
+        <ItemPicker
+          value={selectedKey}
+          onChange={handleItemSelect}
+          tasks={todayTasks}
+          meetings={todayMeetings}
+          googleEvents={todayGoogleEvents}
+          jobs={jobs}
+        />
         {(jobs || []).length > 0 && (
           <JobPicker value={jobId} onChange={setJobId} jobs={jobs} />
         )}
@@ -389,21 +441,21 @@ function AddEntryForm({ onAdd, onStartTimer, todayTasks, jobs }) {
         </div>
       </div>
 
-      {/* Row 2: task title (read-only if picked) + notes + time + submit */}
+      {/* Row 2: selected item chip + notes + time + submit */}
       <div className="flex gap-2 flex-wrap items-center">
-        {hasTask ? (
-          <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/8 text-blue-700 dark:text-blue-300 font-medium">
-            <ListTodo size={13} className="flex-shrink-0" />
-            <span className="truncate max-w-48">{taskTitle}</span>
-            <button type="button" onClick={() => handleTaskSelect('')} className="ml-1 text-blue-400 hover:text-blue-600 dark:hover:text-blue-200">
+        {hasItem && (
+          <div className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border font-medium ${isMeeting ? 'border-green-500/30 bg-green-500/8 text-green-700 dark:text-green-300' : 'border-blue-500/30 bg-blue-500/8 text-blue-700 dark:text-blue-300'}`}>
+            {isMeeting ? <Calendar size={13} className="flex-shrink-0" /> : <ListTodo size={13} className="flex-shrink-0" />}
+            <span className="truncate max-w-48">{itemTitle}</span>
+            <button type="button" onClick={() => handleItemSelect(null)} className={`ml-1 ${isMeeting ? 'text-green-400 hover:text-green-600' : 'text-blue-400 hover:text-blue-600'}`}>
               <X size={12} />
             </button>
           </div>
-        ) : null}
+        )}
 
         <input
           type="text"
-          placeholder={hasTask ? 'Notes (optional)…' : 'What did you work on?'}
+          placeholder={hasItem ? 'Notes (optional)…' : 'What did you work on?'}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="flex-1 min-w-40 text-sm bg-gray-50 dark:bg-white/6 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
@@ -740,7 +792,7 @@ function FocusSection({ stats, jobs, onLogFocus }) {
 
 // ─── Timeline / Gantt view ────────────────────────────────────────────────────
 
-const CAT_COLORS = { task: '#3b82f6', ticket: '#a855f7', focus: '#f59e0b', custom: '#14b8a6' };
+const CAT_COLORS = { task: '#3b82f6', ticket: '#a855f7', focus: '#f59e0b', meeting: '#22c55e', custom: '#14b8a6' };
 
 function getEntryTimes(entry) {
   if (entry.started_at) {
@@ -1054,7 +1106,7 @@ function WeekView({ weekEntries, weekLoading, weekStart, jobs, onGoToDay, addDay
 
 // ─── Main tab ─────────────────────────────────────────────────────────────────
 
-export default function TimeTab({ timeTracking, tasks, stats, jobs, onLogFocus, timeFormat }) {
+export default function TimeTab({ timeTracking, tasks, meetings, googleEvents, stats, jobs, onLogFocus, timeFormat }) {
   const {
     entries, loading, date, setDate, addEntry, updateEntry, deleteEntry,
     totalMinutes, isToday,
@@ -1082,6 +1134,8 @@ export default function TimeTab({ timeTracking, tasks, stats, jobs, onLogFocus, 
   }
 
   const todayTasks = (tasks || []).filter((t) => !t.done && (t.date === today || !t.date));
+  const todayMeetings = (meetings || []).filter((m) => m.date === today);
+  const todayGoogleEvents = (googleEvents || []).filter((e) => e.date === today && !e.allDay);
   const filtered = categoryFilter === 'all' ? entries : entries.filter((e) => e.category === categoryFilter);
   const catTotals = CATEGORIES.map((c) => ({
     ...c,
@@ -1199,6 +1253,8 @@ export default function TimeTab({ timeTracking, tasks, stats, jobs, onLogFocus, 
             onAdd={addEntry}
             onStartTimer={startTimerSafe}
             todayTasks={todayTasks}
+            todayMeetings={todayMeetings}
+            todayGoogleEvents={todayGoogleEvents}
             jobs={jobs}
           />
 

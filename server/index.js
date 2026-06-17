@@ -18,7 +18,7 @@ pool.query(`
     id VARCHAR(36) PRIMARY KEY,
     user_id INT NOT NULL,
     description VARCHAR(500) NOT NULL DEFAULT '',
-    category ENUM('task','ticket','focus','custom') NOT NULL DEFAULT 'custom',
+    category ENUM('task','ticket','focus','meeting','custom') NOT NULL DEFAULT 'custom',
     job_id VARCHAR(36) NULL,
     task_title VARCHAR(500) NULL,
     minutes INT NOT NULL,
@@ -27,7 +27,9 @@ pool.query(`
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_date (user_id, date)
   )
-`).catch((err) => console.error('Failed to create time_entries table:', err));
+`).then(() =>
+  pool.query(`ALTER TABLE time_entries MODIFY COLUMN category ENUM('task','ticket','focus','meeting','custom') NOT NULL DEFAULT 'custom'`)
+).catch((err) => console.error('Failed to create/migrate time_entries table:', err));
 
 // Add columns to existing tables if missing
 pool.query(`ALTER TABLE time_entries ADD COLUMN job_id VARCHAR(36) NULL AFTER category`).catch(() => {});

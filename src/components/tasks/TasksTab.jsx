@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, List, CalendarDays } from 'lucide-react';
+import { ChevronDown, ChevronUp, List, CalendarDays, CheckCircle2, Calendar, CalendarSearch } from 'lucide-react';
 import TaskRow from '../today/TaskRow';
 import QuickAdd from '../today/QuickAdd';
 import AIPlanImport from '../today/AIPlanImport';
@@ -19,11 +19,11 @@ function toDS(d) {
 }
 
 // ─── Agenda View ──────────────────────────────────────────────────────────────
-function AgendaView({ tasks, meetings, googleEvents, jobs, timeFormat, onToggleTask, onDeleteTask, onEditTask, trackedFor }) {
+function AgendaView({ tasks, meetings, googleEvents, jobs, timeFormat, onToggleTask, onToggleMeeting, gcalAttended, onToggleGoogleEvent, onDeleteTask, onEditTask, trackedFor }) {
   const today = getTodayString();
+  const [showPast, setShowPast] = useState(false);
 
-  const days = useMemo(() => {
-    // Collect all unique dates that have content: overdue back 30 days, forward 60 days
+  const { pastDays, currentDays } = useMemo(() => {
     const dateSet = new Set();
     const startD = new Date(today + 'T00:00:00');
     startD.setDate(startD.getDate() - 30);
@@ -43,22 +43,38 @@ function AgendaView({ tasks, meetings, googleEvents, jobs, timeFormat, onToggleT
       if (d >= startD && d <= endD) dateSet.add(e.date);
     });
 
-    return [...dateSet].sort().map(ds => {
+    const all = [...dateSet].sort().map(ds => {
       const d = new Date(ds + 'T00:00:00');
       const dayTasks = tasks.filter(t => t.date === ds).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
       const dayMeetings = meetings.filter(m => m.date === ds).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
       const dayGoogle = (googleEvents || []).filter(e => e.date === ds).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
       return { ds, d, dayTasks, dayMeetings, dayGoogle };
     });
+
+    return {
+      pastDays: all.filter(({ ds }) => ds < today),
+      currentDays: all.filter(({ ds }) => ds >= today),
+    };
   }, [tasks, meetings, googleEvents, today]);
 
-  if (days.length === 0) {
+  if (pastDays.length === 0 && currentDays.length === 0) {
     return <p className="text-sm text-gray-400 dark:text-gray-500 italic py-4">No tasks or events scheduled.</p>;
   }
 
+  const allVisible = showPast ? [...pastDays, ...currentDays] : currentDays;
+
   return (
     <div className="space-y-1">
-      {days.map(({ ds, d, dayTasks, dayMeetings, dayGoogle }) => {
+      {/* Show earlier toggle */}
+      {pastDays.length > 0 && (
+        <button onClick={() => setShowPast(s => !s)}
+          className="flex items-center gap-1.5 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors mb-2">
+          <ChevronUp size={13} className={`transition-transform ${showPast ? '' : 'rotate-180'}`} />
+          {showPast ? 'Hide past dates' : `Show ${pastDays.length} earlier date${pastDays.length > 1 ? 's' : ''}`}
+        </button>
+      )}
+
+      {allVisible.map(({ ds, d, dayTasks, dayMeetings, dayGoogle }) => {
         const isToday = ds === today;
         const isPast = ds < today;
 
@@ -82,50 +98,59 @@ function AgendaView({ tasks, meetings, googleEvents, jobs, timeFormat, onToggleT
               <div className={`w-px flex-1 mb-2 ${isToday ? 'bg-blue-200 dark:bg-blue-800/60' : 'bg-gray-100 dark:bg-gray-800'}`} />
             </div>
 
-            {/* Items */}
+            {/* Items — merged and sorted by time */}
             <div className="flex-1 min-w-0 py-2 space-y-2 pb-4">
-              {/* Tasks — full TaskRow with interactions */}
-              {dayTasks.map(task => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  job={getJob(jobs, task.jobId)}
-                  onToggle={onToggleTask}
-                  onDelete={onDeleteTask}
-                  onEdit={onEditTask}
-                  timeFormat={timeFormat}
-                  trackedMinutes={trackedFor(task)}
-                />
-              ))}
-
-              {/* Meetings — simple read-only row */}
-              {dayMeetings.map(m => {
-                const job = getJob(jobs, m.jobId);
-                return (
-                  <div key={m.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-gray-800">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job?.color || '#6366f1' }} />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{m.title}</span>
+              {[
+                ...dayTasks.map(t => ({ _type: 'task', _sort: t.time || 'zzz', data: t })),
+                ...dayMeetings.map(m => ({ _type: 'meeting', _sort: m.time || 'zzz', data: m })),
+                ...dayGoogle.map(e => ({ _type: 'google', _sort: e.time || (e.allDay ? '000' : 'zzz'), data: e })),
+              ].sort((a, b) => a._sort.localeCompare(b._sort)).map(item => {
+                if (item._type === 'task') {
+                  const task = item.data;
+                  return (
+                    <TaskRow
+                      key={`t-${task.id}`}
+                      task={task}
+                      job={getJob(jobs, task.jobId)}
+                      onToggle={onToggleTask}
+                      onDelete={onDeleteTask}
+                      onEdit={onEditTask}
+                      timeFormat={timeFormat}
+                      trackedMinutes={trackedFor(task)}
+                    />
+                  );
+                }
+                if (item._type === 'meeting') {
+                  const m = item.data;
+                  const job = getJob(jobs, m.jobId);
+                  return (
+                    <div key={`m-${m.id}`} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-gray-800 ${m.attended ? 'opacity-50' : ''}`} style={{ borderLeftColor: job?.color || '#6366f1', borderLeftWidth: 4 }}>
+                      <button onClick={() => onToggleMeeting?.(m.id)} className="flex-shrink-0 transition-colors" title={m.attended ? 'Mark as not attended' : 'Mark as attended'}>
+                        {m.attended ? <CheckCircle2 size={16} className="text-green-500 dark:text-green-400" /> : <Calendar size={16} className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium text-gray-800 dark:text-gray-200 truncate ${m.attended ? 'line-through' : ''}`}>{m.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                        {m.time && <span>{formatTime(m.time, timeFormat)}</span>}
+                        {m.time && m.duration && <span>·</span>}
+                        {m.duration && <span>{m.duration}m</span>}
+                        {job && <span className="ml-1 font-medium" style={{ color: job.color }}>{job.name}</span>}
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500">meeting</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                      {m.time && <span>{formatTime(m.time, timeFormat)}</span>}
-                      {m.time && m.duration && <span>·</span>}
-                      {m.duration && <span>{m.duration}m</span>}
-                      {job && <span className="ml-1 font-medium" style={{ color: job.color }}>{job.name}</span>}
-                    </div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500">meeting</span>
-                  </div>
-                );
-              })}
-
-              {/* Google events — lightweight indicator */}
-              {dayGoogle.map(e => {
+                  );
+                }
+                const e = item.data;
                 const job = jobs.find(j => j.googleAccountEmail === e.accountEmail) || null;
+                const gAttended = gcalAttended?.[e.id]?.attended || false;
                 return (
-                  <div key={e.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-gray-800 opacity-70">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: job?.color || e.accountColor || '#6b7280' }} />
+                  <div key={`g-${e.id}`} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.02] border border-gray-100 dark:border-gray-800 ${gAttended ? 'opacity-50' : ''}`} style={{ borderLeftColor: job?.color || e.accountColor || '#6b7280', borderLeftWidth: 4 }}>
+                    <button onClick={() => onToggleGoogleEvent?.(e.id)} className="flex-shrink-0 transition-colors" title={gAttended ? 'Mark as not attended' : 'Mark as attended'}>
+                      {gAttended ? <CheckCircle2 size={16} className="text-green-500 dark:text-green-400" /> : <CalendarSearch size={16} className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400" />}
+                    </button>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{e.title}</span>
+                      <span className={`text-sm font-medium text-gray-800 dark:text-gray-200 truncate ${gAttended ? 'line-through' : ''}`}>{e.title}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
                       {!e.allDay && e.time && <span>{formatTime(e.time, timeFormat)}</span>}
@@ -158,7 +183,7 @@ function Section({ title, count, accent = 'text-gray-700 dark:text-gray-300', ch
 }
 
 // ─── TasksTab ─────────────────────────────────────────────────────────────────
-export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onAddMeeting, onAiPlanImported, onToggleTask, onDeleteTask, onEditTask, timeFormat, timeTracking }) {
+export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTask, onAddMeeting, onAiPlanImported, onToggleTask, onToggleMeeting, gcalAttended, onToggleGoogleEvent, onDeleteTask, onEditTask, timeFormat, timeTracking }) {
   const [addDate, setAddDate] = useState(getTodayString());
   const [view, setView] = useState('list');
   const [showCompleted, setShowCompleted] = useState(false);
@@ -235,6 +260,9 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
           jobs={jobs}
           timeFormat={timeFormat}
           onToggleTask={onToggleTask}
+          onToggleMeeting={onToggleMeeting}
+          gcalAttended={gcalAttended}
+          onToggleGoogleEvent={onToggleGoogleEvent}
           onDeleteTask={onDeleteTask}
           onEditTask={onEditTask}
           trackedFor={trackedFor}

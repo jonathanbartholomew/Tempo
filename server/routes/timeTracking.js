@@ -37,7 +37,7 @@ router.post('/', requireAuth, async (req, res) => {
     if (!description && !taskTitle) return res.status(400).json({ error: 'description or taskTitle required' });
     const id = crypto.randomUUID();
     const entryDate = date || new Date().toISOString().slice(0, 10);
-    const validCategory = ['task', 'ticket', 'focus', 'custom'].includes(category) ? category : 'custom';
+    const validCategory = ['task', 'ticket', 'focus', 'meeting', 'custom'].includes(category) ? category : 'custom';
     const startedAtVal = startedAt ? new Date(startedAt) : null;
     await pool.query(
       'INSERT INTO time_entries (id, user_id, description, category, job_id, task_title, minutes, date, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -55,7 +55,7 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { description, category, minutes, jobId, taskTitle, startedAt } = req.body;
-    const validCategory = ['task', 'ticket', 'focus', 'custom'].includes(category) ? category : 'custom';
+    const validCategory = ['task', 'ticket', 'focus', 'meeting', 'custom'].includes(category) ? category : 'custom';
     const startedAtVal = startedAt ? new Date(startedAt) : null;
     const [result] = await pool.query(
       `UPDATE time_entries SET description = ?, category = ?, job_id = ?, task_title = ?, minutes = ?,

@@ -147,6 +147,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   const { events: googleEvents, sourceErrors: googleEventErrors } = useGoogleCalendar(calendarSources, timezone);
 
   const [hiddenEventTitles, setHiddenEventTitles] = useServerStorage(STORAGE_KEYS.hiddenEvents, []);
+  const [gcalAttended, setGcalAttended] = useServerStorage(STORAGE_KEYS.gcalAttended, {});
   const visibleGoogleEvents = useMemo(
     () => googleEvents.filter((e) => !hiddenEventTitles.includes(e.title)),
     [googleEvents, hiddenEventTitles]
@@ -304,6 +305,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     setMeetings((prev) => prev.map((m) => (m.jobId === id ? { ...m, jobId: null } : m)));
   }
 
+  function updateJob(id, changes) {
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...changes } : j)));
+  }
+
   // --- Focus ---
   function logFocusSession(minutes, jobId) {
     setStats((prev) => {
@@ -341,9 +346,110 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     setMeetings((prev) => prev.filter((m) => m.id !== id));
   }
 
+  const MEETING_XP = 15;
+
+  function toggleMeeting(id) {
+    const meeting = meetings.find((m) => m.id === id);
+    if (!meeting) return;
+
+    if (meeting.attended) {
+      setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, attended: false, attendedAt: null } : m)));
+      setStats((prev) => {
+        const today = getTodayString();
+        const history = prev.history || {};
+        const todayEntry = history[today] || { completed: 0, xp: 0 };
+        return {
+          ...prev,
+          totalXp: Math.max(0, prev.totalXp - MEETING_XP),
+          history: {
+            ...history,
+            [today]: {
+              ...todayEntry,
+              xp: Math.max(0, todayEntry.xp - MEETING_XP),
+            },
+          },
+        };
+      });
+      return;
+    }
+
+    const now = new Date();
+    setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, attended: true, attendedAt: now.toISOString() } : m)));
+    setStats((prev) => {
+      const today = getTodayString();
+      let { streak, lastActiveDate, longestStreak } = prev;
+      if (lastActiveDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+        lastActiveDate = today;
+        longestStreak = Math.max(longestStreak, streak);
+      }
+      const history = prev.history || {};
+      const todayEntry = history[today] || { completed: 0, xp: 0 };
+      return {
+        ...prev,
+        totalXp: prev.totalXp + MEETING_XP,
+        streak,
+        lastActiveDate,
+        longestStreak,
+        history: {
+          ...history,
+          [today]: {
+            ...todayEntry,
+            xp: todayEntry.xp + MEETING_XP,
+          },
+        },
+      };
+    });
+    pushToast(`+${MEETING_XP} XP — Meeting attended!`);
+  }
+
+  function toggleGoogleEvent(id) {
+    const isAttended = gcalAttended[id]?.attended;
+    if (isAttended) {
+      setGcalAttended((prev) => ({ ...prev, [id]: { attended: false, attendedAt: null } }));
+      setStats((prev) => {
+        const today = getTodayString();
+        const history = prev.history || {};
+        const todayEntry = history[today] || { completed: 0, xp: 0 };
+        return {
+          ...prev,
+          totalXp: Math.max(0, prev.totalXp - MEETING_XP),
+          history: { ...history, [today]: { ...todayEntry, xp: Math.max(0, todayEntry.xp - MEETING_XP) } },
+        };
+      });
+      return;
+    }
+    const now = new Date();
+    setGcalAttended((prev) => ({ ...prev, [id]: { attended: true, attendedAt: now.toISOString() } }));
+    setStats((prev) => {
+      const today = getTodayString();
+      let { streak, lastActiveDate, longestStreak } = prev;
+      if (lastActiveDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+        lastActiveDate = today;
+        longestStreak = Math.max(longestStreak, streak);
+      }
+      const history = prev.history || {};
+      const todayEntry = history[today] || { completed: 0, xp: 0 };
+      return {
+        ...prev,
+        totalXp: prev.totalXp + MEETING_XP,
+        streak,
+        lastActiveDate,
+        longestStreak,
+        history: { ...history, [today]: { ...todayEntry, xp: todayEntry.xp + MEETING_XP } },
+      };
+    });
+    pushToast(`+${MEETING_XP} XP — Meeting attended!`);
+  }
+
   // --- Achievements ---
   useEffect(() => {
-    const context = { stats, jobs, tasks, meetings };
+    const context = { stats, jobs, tasks, meetings, gcalAttended };
     const newly = getNewlyUnlocked(earned, context);
     if (newly.length === 0) return;
 
@@ -394,6 +500,9 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onAddMeeting={addMeeting}
           onAiPlanImported={addAiPlanImport}
           onToggleTask={toggleTask}
+          onToggleMeeting={toggleMeeting}
+          gcalAttended={gcalAttended}
+          onToggleGoogleEvent={toggleGoogleEvent}
           onDeleteTask={deleteTask}
           onEditTask={editTask}
           onReorderTasks={reorderTasks}
@@ -416,6 +525,9 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onAddMeeting={addMeeting}
           onAiPlanImported={addAiPlanImport}
           onToggleTask={toggleTask}
+          onToggleMeeting={toggleMeeting}
+          gcalAttended={gcalAttended}
+          onToggleGoogleEvent={toggleGoogleEvent}
           onDeleteTask={deleteTask}
           onEditTask={editTask}
           timeFormat={timeFormat}
@@ -435,6 +547,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onToggleTask={toggleTask}
           onDeleteTask={deleteTask}
           onDeleteMeeting={deleteMeeting}
+          onToggleMeeting={toggleMeeting}
           onHideEvent={hideCalendarEvent}
           onGoToSettings={() => setActiveTab('settings')}
           timeFormat={timeFormat}
@@ -446,7 +559,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       )}
 
       {activeTab === 'achievements' && (
-        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} earned={earned} />
+        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} />
       )}
 
       {activeTab === 'jira' && (
@@ -463,7 +576,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       {activeTab === 'asana' && <UnderConstruction name="Asana" />}
 
       {activeTab === 'time' && (
-        <TimeTab timeTracking={timeTracking} tasks={tasks} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
+        <TimeTab timeTracking={timeTracking} tasks={tasks} meetings={meetings} googleEvents={visibleGoogleEvents} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
       )}
 
       {activeTab === 'settings' && (
@@ -486,9 +599,11 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           connectedAccounts={connectedAccounts}
           onAddJob={addJob}
           onRemoveJob={removeJob}
+          onUpdateJob={updateJob}
           meetings={meetings}
           onAddMeeting={addMeeting}
           onDeleteMeeting={deleteMeeting}
+          onToggleMeeting={toggleMeeting}
           timezone={timezone}
           onSetTimezone={setTimezone}
           timeFormat={timeFormat}

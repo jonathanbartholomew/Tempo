@@ -7,8 +7,10 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarSearch,
+  Calendar,
   EyeOff,
   Timer,
+  CheckCircle2,
 } from "lucide-react";
 import TaskRow from "./TaskRow";
 import QuickAdd from "./QuickAdd";
@@ -43,6 +45,7 @@ export default function TodayTab({
   user,
   onAddTask,
   onToggleTask,
+  onToggleMeeting,
   onDeleteTask,
   onEditTask,
   onReorderTasks,
@@ -50,6 +53,8 @@ export default function TodayTab({
   onAiPlanImported,
   onGoToMeetings,
   onHideEvent,
+  gcalAttended,
+  onToggleGoogleEvent,
   timeFormat,
   jira,
   onGoToJira,
@@ -129,6 +134,16 @@ export default function TodayTab({
       data: e,
     })),
   ].sort((a, b) => a.time.localeCompare(b.time));
+
+  const todayGoogleEvents = [...timedGoogleEvents, ...allDayGoogleEvents];
+  const attendedAppMeetings = todaysMeetings.filter((m) => m.attended).length;
+  const attendedGcal = todayGoogleEvents.filter((e) => gcalAttended?.[e.id]?.attended).length;
+  const attendedMeetings = attendedAppMeetings + attendedGcal;
+  const totalMeetings = todaysMeetings.length + todayGoogleEvents.length;
+  const totalItems = todaysTasks.length + totalMeetings;
+  const taskFrac = totalItems > 0 ? completed.length / totalItems : 0;
+  const meetingFrac = totalItems > 0 ? attendedMeetings / totalItems : 0;
+  const combinedPct = totalItems > 0 ? Math.round((completed.length + attendedMeetings) / totalItems * 100) : 0;
 
   const progress = todaysTasks.length
     ? completed.length / todaysTasks.length
@@ -236,23 +251,37 @@ export default function TodayTab({
 
         <div className="glow-card rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-4">
           <ProgressRing
-            progress={progress}
+            taskFrac={taskFrac}
+            meetingFrac={meetingFrac}
             size={96}
             strokeWidth={9}
-            label={`${Math.round(progress * 100)}%`}
+            label={`${combinedPct}%`}
             sublabel="Progress"
           />
           <div className="flex-1">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               Today's Progress
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {completed.length} of {todaysTasks.length} tasks done
-            </p>
-            <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+            <div className="mt-0.5 space-y-0.5">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5 align-middle" />
+                {completed.length} of {todaysTasks.length} tasks done
+              </p>
+              {totalMeetings > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ backgroundColor: '#84cc16' }} />
+                  {attendedMeetings} of {totalMeetings} meetings attended
+                </p>
+              )}
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden flex">
               <div
                 className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
-                style={{ width: `${progress * 100}%` }}
+                style={{ width: `${taskFrac * 100}%` }}
+              />
+              <div
+                className="h-full transition-all duration-300"
+                style={{ width: `${meetingFrac * 100}%`, backgroundColor: '#84cc16' }}
               />
             </div>
             {todayHistory.xp > 0 && (
@@ -329,6 +358,7 @@ export default function TodayTab({
                     onDelete={onDeleteTask}
                     onEdit={onEditTask}
                     timeFormat={timeFormat}
+                    hideJobBadge
                   />
                 );
               }
@@ -338,54 +368,65 @@ export default function TodayTab({
                 return (
                   <div
                     key={item.key}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
-                    style={{
-                      borderLeftColor: job?.color || "#9ca3af",
-                      borderLeftWidth: 4,
-                    }}
+                    className={`relative flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 ${meeting.attended ? 'opacity-50' : ''}`}
+                    style={{ borderLeftColor: job?.color || "#9ca3af", borderLeftWidth: 4 }}
                   >
-                    <Clock size={16} className="text-gray-400 flex-shrink-0" />
+                    {job && (
+                      <div className="absolute left-0 top-0 h-full w-2 group/jobtip z-10 cursor-default">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover/jobtip:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg z-50">
+                          {job.name}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => onToggleMeeting?.(meeting.id)}
+                      className="flex-shrink-0 transition-colors"
+                      title={meeting.attended ? 'Mark as not attended' : 'Mark as attended'}
+                    >
+                      {meeting.attended
+                        ? <CheckCircle2 size={16} className="text-green-500 dark:text-green-400" />
+                        : <Calendar size={16} className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400" />}
+                    </button>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {formatTime(meeting.time, timeFormat)}
                     </span>
-                    <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">
+                    <span className={`flex-1 text-sm text-gray-900 dark:text-gray-100 ${meeting.attended ? 'line-through' : ''}`}>
                       {meeting.title}
                     </span>
-                    {job && (
-                      <span
-                        className="text-xs font-medium px-2 py-1 rounded-full text-white"
-                        style={{ backgroundColor: job.color }}
-                      >
-                        {job.name}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {meeting.duration}m
-                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{meeting.duration}m</span>
                   </div>
                 );
               }
               const event = item.data;
+              const gAttended = gcalAttended?.[event.id]?.attended || false;
+              const eventJob = jobs.find((j) => j.googleAccountEmail === event.accountEmail) || null;
               return (
                 <div
                   key={item.key}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                  className={`relative flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 ${gAttended ? 'opacity-50' : ''}`}
+                  style={{ borderLeftColor: eventJob?.color || event.accountColor || "#6b7280", borderLeftWidth: 4 }}
                 >
-                  <CalendarSearch
-                    size={16}
-                    className="text-gray-400 flex-shrink-0"
-                  />
+                  {(eventJob || event.account) && (
+                    <div className="absolute left-0 top-0 h-full w-2 group/jobtip z-10 cursor-default">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md bg-gray-900 dark:bg-gray-700 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover/jobtip:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg z-50">
+                        {eventJob ? eventJob.name : event.account}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => onToggleGoogleEvent?.(event.id)}
+                    className="flex-shrink-0 transition-colors"
+                    title={gAttended ? 'Mark as not attended' : 'Mark as attended'}
+                  >
+                    {gAttended
+                      ? <CheckCircle2 size={16} className="text-green-500 dark:text-green-400" />
+                      : <CalendarSearch size={16} className="text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400" />}
+                  </button>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {formatTime(event.time, timeFormat)}
                   </span>
-                  <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">
+                  <span className={`flex-1 text-sm text-gray-900 dark:text-gray-100 ${gAttended ? 'line-through' : ''}`}>
                     {event.title}
-                  </span>
-                  <span
-                    className="text-xs font-medium px-2 py-1 rounded-full text-white"
-                    style={{ backgroundColor: event.accountColor || "#6b7280" }}
-                  >
-                    {event.account}
                   </span>
                   <span className="text-xs text-gray-400 dark:text-gray-500">
                     {event.duration}m
@@ -420,6 +461,7 @@ export default function TodayTab({
                   onDelete={onDeleteTask}
                   onEdit={onEditTask}
                   timeFormat={timeFormat}
+                  hideJobBadge
                   dragHandleProps={{
                     draggable: true,
                     onDragStart: () => handleDragStart(index),
@@ -452,6 +494,7 @@ export default function TodayTab({
                       onDelete={onDeleteTask}
                       onEdit={onEditTask}
                       timeFormat={timeFormat}
+                      hideJobBadge
                     />
                   ))}
               </div>

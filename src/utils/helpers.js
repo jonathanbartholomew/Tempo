@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   auth: 'tempo_auth',
   calendarAccounts: 'tempo_calendar_accounts',
   hiddenEvents: 'tempo_hidden_calendar_events',
+  gcalAttended: 'tempo_gcal_attended',
   timezone: 'tempo_timezone',
   timeFormat: 'tempo_time_format',
   focusSession: 'tempo_focus_session',
