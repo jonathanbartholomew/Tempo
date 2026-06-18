@@ -15,6 +15,7 @@ import JiraTab from './components/jira/JiraTab';
 import TimeTab from './components/time/TimeTab';
 import GlobalTimerBar from './components/layout/GlobalTimerBar';
 import UnderConstruction from './components/layout/UnderConstruction';
+import AdminTab from './components/org/AdminTab';
 import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -148,6 +149,45 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     const params = new URLSearchParams(window.location.search);
     return params.get('jira') ? 'jira' : 'today';
   });
+  const [faviconDot, setFaviconDot] = useState(false);
+
+  // Swap favicon — red dot overlay while timer is active
+  useEffect(() => {
+    const link = document.querySelector("link[rel~='icon']") || (() => {
+      const el = document.createElement('link');
+      el.rel = 'icon';
+      document.head.appendChild(el);
+      return el;
+    })();
+
+    if (!faviconDot) {
+      link.type = 'image/png';
+      link.href = '/tempo-logo.png';
+      return;
+    }
+
+    // Draw logo + red dot onto a canvas and use as data URL
+    const img = new Image();
+    img.src = '/tempo-logo.png';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 64, 64);
+      // Red recording dot — top-right corner
+      ctx.beginPath();
+      ctx.arc(54, 10, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(54, 10, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#fca5a5';
+      ctx.fill();
+      link.type = 'image/png';
+      link.href = canvas.toDataURL('image/png');
+    };
+  }, [faviconDot]);
   const jira = useJira(auth);
   const timeTracking = useTimeTracking(auth);
   const org = useOrg(auth);
@@ -552,6 +592,26 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats, jobs, tasks, meetings, earned]);
 
+  // --- Corporate achievement sync ---
+  useEffect(() => {
+    if (!org.org?.id || dataLoading) return;
+    const level = getLevelInfo(stats.totalXp).level;
+    const focusMinutes = Object.values(stats.history || {}).reduce((s, d) => s + (d.focusMinutes || 0), 0);
+    org.syncOrgAchievements(org.org.id, {
+      level,
+      tasksCompleted: stats.tasksCompleted,
+      totalXp: stats.totalXp,
+      streak: stats.streak,
+      focusMinutes,
+    }).then(({ unlocked }) => {
+      if (!unlocked.length) return;
+      const bonusXp = unlocked.reduce((s, a) => s + a.xp_reward, 0);
+      if (bonusXp > 0) setStats((prev) => ({ ...prev, totalXp: prev.totalXp + bonusXp }));
+      unlocked.forEach((a) => pushToast(`Company achievement unlocked: ${a.name} (+${a.xp_reward} XP)`));
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.tasksCompleted, stats.totalXp, stats.streak, org.org?.id, dataLoading]);
+
   // --- Level up ---
   useEffect(() => {
     if (dataLoading) return;
@@ -567,6 +627,40 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   }, [stats.totalXp, dataLoading]);
 
   const profileHasSelections = (profile.usageType?.length + profile.role?.length + profile.specialty?.length + profile.goals?.length) > 0;
+
+  // Tab title + favicon pulse while timer is running
+  useEffect(() => {
+    const { active, running, elapsed, startedAt } = timeTracking.timer;
+    if (!active) {
+      document.title = 'Tempo — AI-Powered Daily Planner';
+      setFaviconDot(false);
+      return;
+    }
+
+    function fmt(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    setFaviconDot(true);
+
+    if (!running) {
+      document.title = `⏸ ${fmt(elapsed)} — Tempo`;
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const ms = elapsed + (Date.now() - startedAt);
+      document.title = `⏱ ${fmt(ms)} — Tempo`;
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeTracking.timer.active, timeTracking.timer.running, timeTracking.timer.elapsed, timeTracking.timer.startedAt]);
+
   if (!profile.onboardingComplete || !profileHasSelections) {
     return <OnboardingFlow onComplete={(data) => setProfile(data)} />;
   }
@@ -577,7 +671,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
         <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', opacity: 0.1 }} />
       </div>
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} org={org.org} />
       <Toast toasts={toasts} />
 
       {activeTab === 'today' && (
@@ -653,7 +747,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       )}
 
       {activeTab === 'achievements' && (
-        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} />
+        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} org={org.org} orgActions={org} />
       )}
 
       {activeTab === 'jira' && (
@@ -671,6 +765,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
 
       {activeTab === 'time' && (
         <TimeTab timeTracking={timeTracking} tasks={allTasks} meetings={meetings} googleEvents={visibleGoogleEvents} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
+      )}
+
+      {activeTab === 'admin' && (
+        <AdminTab auth={auth} org={org.org} orgActions={org} />
       )}
 
       {activeTab === 'settings' && (
@@ -705,8 +803,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           profile={profile}
           onUpdateProfile={setProfile}
           jira={jira}
+          auth={auth}
           org={org.org}
           orgActions={org}
+          onNavigate={setActiveTab}
         />
       )}
 

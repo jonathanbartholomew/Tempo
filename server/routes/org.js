@@ -442,6 +442,62 @@ router.delete('/:orgId/achievements/:achievementId', async (req, res) => {
   res.status(204).end();
 });
 
+// Sync user progress against all org achievements — evaluates & unlocks
+router.post('/:orgId/achievements/sync', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { level = 0, tasksCompleted = 0, totalXp = 0, streak = 0, focusMinutes = 0 } = req.body;
+
+  const [achievements] = await pool.query(
+    'SELECT * FROM corporate_achievements WHERE org_id = ? AND active = TRUE',
+    [orgId]
+  );
+  if (!achievements.length) return res.json({ unlocked: [] });
+
+  const ids = achievements.map((a) => a.id);
+  const [rows] = await pool.query(
+    'SELECT achievement_id, progress, unlocked_at FROM corporate_achievement_progress WHERE user_id = ? AND achievement_id IN (?)',
+    [req.userId, ids]
+  );
+  const progressMap = Object.fromEntries(rows.map((r) => [r.achievement_id, r]));
+
+  const newlyUnlocked = [];
+
+  for (const a of achievements) {
+    let value = 0;
+    if (a.criteria_type === 'level')            value = level;
+    else if (a.criteria_type === 'tasks_completed') value = tasksCompleted;
+    else if (a.criteria_type === 'focus_hours') value = Math.floor(focusMinutes / 60);
+    else if (a.criteria_type === 'streak_days') value = streak;
+    else if (a.criteria_type === 'xp_total')    value = totalXp;
+
+    const existing = progressMap[a.id];
+    const alreadyUnlocked = existing?.unlocked_at != null;
+    const shouldUnlock = value >= a.criteria_value;
+
+    if (!alreadyUnlocked && shouldUnlock) {
+      await pool.query(
+        `INSERT INTO corporate_achievement_progress (user_id, achievement_id, progress, unlocked_at)
+         VALUES (?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE progress = ?, unlocked_at = COALESCE(unlocked_at, NOW())`,
+        [req.userId, a.id, value, value]
+      );
+      newlyUnlocked.push(a);
+    } else if (!alreadyUnlocked) {
+      await pool.query(
+        `INSERT INTO corporate_achievement_progress (user_id, achievement_id, progress)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE progress = GREATEST(progress, ?)`,
+        [req.userId, a.id, value, value]
+      );
+    }
+  }
+
+  res.json({ unlocked: newlyUnlocked });
+});
+
 // ── Team goals ────────────────────────────────────────────────────────────────
 
 // List goals for a team

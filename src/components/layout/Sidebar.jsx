@@ -12,6 +12,8 @@ import {
   X,
   LogOut,
   Clock,
+  ShieldCheck,
+  Building2,
 } from "lucide-react";
 import logoLight from "../../assets/tempo-logo-trans-right.png";
 import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
@@ -73,6 +75,7 @@ export default function Sidebar({
   theme,
   user,
   onLogout,
+  org,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -111,6 +114,12 @@ export default function Sidebar({
         </p>
       </div>
       {CONNECTED_APPS_ITEMS.map(renderNavItem)}
+
+      {org?.role === 'org_admin' && (
+        <div className="pt-2">
+          {renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck })}
+        </div>
+      )}
 
       <div className="pt-2">
         {BOTTOM_ITEMS.map(renderNavItem)}
@@ -188,12 +197,24 @@ export default function Sidebar({
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-60 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-30">
-        <div className="px-4 py-6">
+        <div className="px-4 py-6 space-y-3">
           <img
             src={theme === "dark" ? logoDark : logoLight}
             alt="Tempo"
             className="h-16 w-auto"
           />
+          {org && (
+            <div className="flex items-center gap-2 px-1">
+              {org.logo_url ? (
+                <img src={org.logo_url} alt={org.name} className="w-6 h-6 rounded object-contain flex-shrink-0" />
+              ) : (
+                <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
+                  <Building2 size={13} className="text-blue-500" />
+                </div>
+              )}
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate">{org.name}</span>
+            </div>
+          )}
         </div>
         {navList}
         {logoutButton}

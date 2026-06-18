@@ -31,7 +31,9 @@ export function useGoogleCalendar(sources, timezone = DEFAULT_TIMEZONE) {
     try {
       const timeMin = new Date();
       timeMin.setHours(0, 0, 0, 0);
-      const timeMax = new Date(timeMin);
+      timeMin.setDate(timeMin.getDate() - 60);
+      const timeMax = new Date();
+      timeMax.setHours(0, 0, 0, 0);
       timeMax.setDate(timeMax.getDate() + 14);
 
       const params = new URLSearchParams({
@@ -39,7 +41,7 @@ export function useGoogleCalendar(sources, timezone = DEFAULT_TIMEZONE) {
         timeMax: timeMax.toISOString(),
         singleEvents: 'true',
         orderBy: 'startTime',
-        maxResults: '50',
+        maxResults: '250',
       });
 
       const errors = expired.map((s) => ({ email: s.email || s.id, reason: 'expired' }));

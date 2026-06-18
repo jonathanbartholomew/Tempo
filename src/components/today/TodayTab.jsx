@@ -136,8 +136,9 @@ export default function TodayTab({
   ].sort((a, b) => a.time.localeCompare(b.time));
 
   const todayGoogleEvents = [...timedGoogleEvents, ...allDayGoogleEvents];
-  const attendedAppMeetings = todaysMeetings.filter((m) => m.attended).length;
-  const attendedGcal = todayGoogleEvents.filter((e) => gcalAttended?.[e.id]?.attended).length;
+  const isPastDay = viewDate < today;
+  const attendedAppMeetings = todaysMeetings.filter((m) => isPastDay ? m.attended !== false : m.attended).length;
+  const attendedGcal = todayGoogleEvents.filter((e) => isPastDay ? gcalAttended?.[e.id]?.attended !== false : gcalAttended?.[e.id]?.attended).length;
   const attendedMeetings = attendedAppMeetings + attendedGcal;
   const totalMeetings = todaysMeetings.length + todayGoogleEvents.length;
   const totalItems = todaysTasks.length + totalMeetings;

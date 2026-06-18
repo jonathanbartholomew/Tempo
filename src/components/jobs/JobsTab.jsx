@@ -7,7 +7,7 @@ function isValidHex(v) {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
 }
 
-export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRemoveJob, onUpdateJob }) {
+export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRemoveJob, onUpdateJob, label = 'Job' }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState(JOB_TYPES[1]);
@@ -35,13 +35,13 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Jobs</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">{label}s</h2>
         <button
           onClick={() => setShowForm((s) => !s)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
-          {showForm ? 'Cancel' : 'Add Job'}
+          {showForm ? 'Cancel' : `Add ${label}`}
         </button>
       </div>
 
@@ -51,7 +51,7 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Job name..."
+            placeholder={`${label} name...`}
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
@@ -112,13 +112,13 @@ export default function JobsTab({ jobs, tasks, connectedAccounts, onAddJob, onRe
             type="submit"
             className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
           >
-            Add Job
+            Add {label}
           </button>
         </form>
       )}
 
       {jobs.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500 italic">No jobs yet. Add your first one above!</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">No {label.toLowerCase()}s yet. Add your first one above!</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {jobs.map((job) => {

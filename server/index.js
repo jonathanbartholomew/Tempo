@@ -13,7 +13,7 @@ import { pool } from './db.js';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Ensure time_entries table exists
 pool.query(`
@@ -36,6 +36,7 @@ pool.query(`
 
 // Add columns to existing tables if missing
 pool.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(60) NULL`).catch(() => {});
+pool.query(`ALTER TABLE organizations MODIFY COLUMN logo_url MEDIUMTEXT NULL`).catch(() => {});
 pool.query(`ALTER TABLE users ADD COLUMN auth_provider ENUM('google','email') NOT NULL DEFAULT 'google'`).catch(() => {});
 pool.query(`ALTER TABLE time_entries ADD COLUMN job_id VARCHAR(36) NULL AFTER category`).catch(() => {});
 pool.query(`ALTER TABLE time_entries ADD COLUMN task_title VARCHAR(500) NULL AFTER job_id`).catch(() => {});

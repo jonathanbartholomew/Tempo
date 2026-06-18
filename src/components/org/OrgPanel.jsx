@@ -52,7 +52,8 @@ function CopyButton({ text }) {
 
 export default function OrgPanel({ auth, org, orgActions }) {
   const isAdmin = org?.role === 'org_admin';
-  const canManageTeams = ['org_admin', 'project_manager'].includes(org?.role);
+  const canManageTeams = ['org_admin', 'project_manager', 'team_lead'].includes(org?.role);
+  const canSeeTeams = org?.role !== 'member';
 
   // Detailed data (members, teams, invites) fetched separately
   const [details, setDetails] = useState(null);
@@ -79,6 +80,9 @@ export default function OrgPanel({ auth, org, orgActions }) {
   const [teamName, setTeamName] = useState('');
   const [teamColor, setTeamColor] = useState(TEAM_COLORS[0]);
   const [creatingTeam, setCreatingTeam] = useState(false);
+
+  // Members dropdown
+  const [showMembers, setShowMembers] = useState(false);
 
   // Team member assignment
   const [expandedTeam, setExpandedTeam] = useState(null);
@@ -266,7 +270,12 @@ export default function OrgPanel({ auth, org, orgActions }) {
   // ── In an org ─────────────────────────────────────────────────────────────
 
   const members = details?.members || [];
-  const myUserId = details?.members?.find((m) => m.role === org.role)?.user_id;
+  const myUserId = members.find((m) => m.email === auth?.user?.email)?.user_id;
+
+  // Filter teams by role — members see none, PMs see only their own teams
+  const visibleTeams = ['org_admin', 'team_lead'].includes(org?.role)
+    ? teams
+    : teams.filter((t) => (t.members || []).some((tm) => tm.user_id === myUserId));
 
   return (
     <div className="space-y-5">
@@ -292,9 +301,13 @@ export default function OrgPanel({ auth, org, orgActions }) {
       {/* Members */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <button
+            onClick={() => setShowMembers((s) => !s)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          >
+            <ChevronDown size={13} className={`transition-transform ${showMembers ? 'rotate-180' : ''}`} />
             Members {members.length > 0 && `(${members.length})`}
-          </h3>
+          </button>
           {isAdmin && (
             <button
               onClick={() => { setShowInviteForm((s) => !s); setInviteResult(null); setInviteError(null); }}
@@ -351,39 +364,43 @@ export default function OrgPanel({ auth, org, orgActions }) {
           </form>
         )}
 
-        {/* Members list */}
-        {members.map((m) => (
-          <div key={m.user_id} className="flex items-center gap-3 py-1.5">
-            <Avatar name={m.name || m.email} picture={m.picture} className="w-7 h-7 text-xs" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{m.name || m.email}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.email}</p>
-            </div>
-            {isAdmin && String(m.user_id) !== String(details?.members?.find((x) => x.role === 'org_admin' && x.user_id === m.user_id)?.user_id) ? (
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <select
-                  value={m.role}
-                  onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
-                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="member">Member</option>
-                  <option value="team_lead">Team Lead</option>
-                  <option value="project_manager">Project Manager</option>
-                  <option value="org_admin">Admin</option>
-                </select>
-                <button
-                  onClick={() => handleRemoveMember(m.user_id)}
-                  className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                  title="Remove member"
-                >
-                  <X size={14} />
-                </button>
+        {/* Members list — collapsible */}
+        {showMembers && (
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+            {members.map((m) => (
+              <div key={m.user_id} className="flex items-center gap-3 px-3 py-2">
+                <Avatar name={m.name || m.email} picture={m.picture} className="w-7 h-7 text-xs flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{m.name || m.email}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.email}</p>
+                </div>
+                {isAdmin && m.email !== auth?.user?.email ? (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
+                      className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="member">Member</option>
+                      <option value="team_lead">Team Lead</option>
+                      <option value="project_manager">Project Manager</option>
+                      <option value="org_admin">Admin</option>
+                    </select>
+                    <button
+                      onClick={() => handleRemoveMember(m.user_id)}
+                      className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      title="Remove member"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <RoleBadge role={m.role} />
+                )}
               </div>
-            ) : (
-              <RoleBadge role={m.role} />
-            )}
+            ))}
           </div>
-        ))}
+        )}
 
         {/* Pending invites */}
         {isAdmin && invites.length > 0 && (
@@ -405,11 +422,11 @@ export default function OrgPanel({ auth, org, orgActions }) {
         )}
       </div>
 
-      {/* Teams */}
-      <div className="space-y-2">
+      {/* Teams — hidden for plain members */}
+      {canSeeTeams && <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Teams {teams.length > 0 && `(${teams.length})`}
+            Teams {visibleTeams.length > 0 && `(${visibleTeams.length})`}
           </h3>
           {canManageTeams && (
             <button
@@ -455,12 +472,14 @@ export default function OrgPanel({ auth, org, orgActions }) {
           </form>
         )}
 
-        {teams.length === 0 && !showTeamForm && (
-          <p className="text-sm text-gray-400 dark:text-gray-500 italic">No teams yet.</p>
+        {visibleTeams.length === 0 && !showTeamForm && (
+          <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+            {teams.length === 0 ? 'No teams yet.' : 'You are not assigned to any teams.'}
+          </p>
         )}
 
         {/* Teams list */}
-        {teams.map((team) => {
+        {visibleTeams.map((team) => {
           const isExpanded = expandedTeam === team.id;
           const teamMembers = team.members || [];
           const nonMembers = members.filter((m) => !teamMembers.find((tm) => tm.user_id === m.user_id));
@@ -549,7 +568,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -62,8 +62,10 @@ export default function SettingsTab({
   profile,
   onUpdateProfile,
   jira,
+  auth,
   org,
   orgActions,
+  onNavigate,
 }) {
   const connectCalendar = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -244,12 +246,27 @@ export default function SettingsTab({
 
       {/* Jobs */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={onAddJob} onRemoveJob={onRemoveJob} onUpdateJob={onUpdateJob} />
+        <JobsTab jobs={jobs} tasks={tasks} connectedAccounts={connectedAccounts} onAddJob={onAddJob} onRemoveJob={onRemoveJob} onUpdateJob={onUpdateJob} label={org ? 'Project' : 'Job'} />
       </div>
 
       {/* Organization */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-        <OrgPanel org={org} orgActions={orgActions} />
+        {org?.role === 'org_admin' ? (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{org.name}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Manage members, teams, and invites from the Admin panel.</p>
+            </div>
+            <button
+              onClick={() => onNavigate?.('admin')}
+              className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+            >
+              Go to Admin
+            </button>
+          </div>
+        ) : (
+          <OrgPanel auth={auth} org={org} orgActions={orgActions} />
+        )}
       </div>
 
       {/* Meetings */}

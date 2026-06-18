@@ -27,6 +27,16 @@ export function useOrg(auth) {
 
   useEffect(() => { fetchOrg(); }, [fetchOrg]);
 
+  async function updateOrg(orgId, data) {
+    const res = await fetch(`/api/org/${orgId}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    await fetchOrg();
+  }
+
   async function createOrg(name) {
     const res = await fetch('/api/org', {
       method: 'POST',
@@ -167,6 +177,51 @@ export function useOrg(auth) {
     if (!res.ok) throw new Error((await res.json()).error);
   }
 
+  async function getOrgAchievements(orgId) {
+    const res = await fetch(`/api/org/${orgId}/achievements`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    return res.json();
+  }
+
+  async function createOrgAchievement(orgId, data) {
+    const res = await fetch(`/api/org/${orgId}/achievements`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    return res.json();
+  }
+
+  async function updateOrgAchievement(orgId, achievementId, data) {
+    const res = await fetch(`/api/org/${orgId}/achievements/${achievementId}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+  }
+
+  async function deleteOrgAchievement(orgId, achievementId) {
+    const res = await fetch(`/api/org/${orgId}/achievements/${achievementId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+  }
+
+  async function syncOrgAchievements(orgId, statsSnapshot) {
+    const res = await fetch(`/api/org/${orgId}/achievements/sync`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(statsSnapshot),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    return res.json(); // { unlocked: [...] }
+  }
+
   async function acceptInvite(token) {
     const res = await fetch(`/api/org/invite/${token}/accept`, {
       method: 'POST',
@@ -183,6 +238,7 @@ export function useOrg(auth) {
     loading,
     refetch: fetchOrg,
     createOrg,
+    updateOrg,
     getOrgDetails,
     inviteMember,
     getInvites,
@@ -195,6 +251,11 @@ export function useOrg(auth) {
     addTeamMember,
     removeTeamMember,
     acceptInvite,
+    getOrgAchievements,
+    createOrgAchievement,
+    updateOrgAchievement,
+    deleteOrgAchievement,
+    syncOrgAchievements,
     createAssignedTask,
     updateAssignedTask,
     getAssignedTasksForOrg,
