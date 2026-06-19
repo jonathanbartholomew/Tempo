@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "motion/react";
 import Avatar from "../ui/Avatar";
 import {
   Sun,
@@ -13,7 +14,9 @@ import {
   LogOut,
   Clock,
   ShieldCheck,
-  Building2,
+  Target,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import logoLight from "../../assets/tempo-logo-trans-right.png";
 import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
@@ -49,24 +52,40 @@ function AsanaIcon({ size = 18 }) {
   );
 }
 
-const NAV_ITEMS = [
-  { id: "today", label: "Today", icon: Sun },
-  { id: "tasks", label: "Tasks", icon: ListTodo },
-  { id: "calendar", label: "Calendar", icon: CalendarDays },
-  { id: "time", label: "Time", icon: Clock },
-  { id: "progress", label: "Progress", icon: TrendingUp },
-  { id: "achievements", label: "Achievements", icon: Trophy },
+const NAV_SECTIONS = [
+  {
+    label: "Planning",
+    items: [
+      { id: "today",        label: "Today",        icon: Sun },
+      { id: "tasks",        label: "Tasks",        icon: ListTodo },
+      { id: "calendar",     label: "Calendar",     icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { id: "time",         label: "Time",         icon: Clock },
+      { id: "progress",     label: "Progress",     icon: TrendingUp },
+      { id: "achievements", label: "Achievements", icon: Trophy },
+      { id: "goals",        label: "Goals",        icon: Target },
+    ],
+  },
+  {
+    label: "Integrations",
+    items: [
+      { id: "jira",   label: "Jira",   iconComponent: JiraIcon },
+      { id: "linear", label: "Linear", iconComponent: LinearIcon },
+      { id: "asana",  label: "Asana",  iconComponent: AsanaIcon },
+    ],
+  },
 ];
 
-const CONNECTED_APPS_ITEMS = [
-  { id: "jira", label: "Jira", iconComponent: JiraIcon },
-  { id: "linear", label: "Linear", iconComponent: LinearIcon },
-  { id: "asana", label: "Asana", iconComponent: AsanaIcon },
-];
-
-const BOTTOM_ITEMS = [
-  { id: "settings", label: "Settings", icon: Settings },
-];
+const PLAN_BADGE = {
+  trial:        { label: 'TRIAL', className: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400' },
+  personal_pro: { label: 'PRO',   className: 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400' },
+  team:         { label: 'TEAM',  className: 'bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400' },
+  enterprise:   { label: 'ENT',   className: 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' },
+};
 
 export default function Sidebar({
   activeTab,
@@ -76,6 +95,9 @@ export default function Sidebar({
   user,
   onLogout,
   org,
+  plan = 'free',
+  collapsed,
+  onToggleCollapse,
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -84,87 +106,140 @@ export default function Sidebar({
     setMobileOpen(false);
   }
 
-  function renderNavItem(item) {
+  function renderNavItem(item, forceExpanded = false) {
     const Icon = item.icon;
     const IconComponent = item.iconComponent;
     const active = activeTab === item.id;
+    const isCollapsed = collapsed && !forceExpanded;
+
     return (
-      <button
+      <motion.button
         key={item.id}
         onClick={() => selectTab(item.id)}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+        whileTap={{ scale: 0.93 }}
+        title={isCollapsed ? item.label : undefined}
+        className={`w-full flex items-center rounded-xl text-sm font-medium transition-colors ${
+          isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'
+        } ${
           active
             ? "bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.5)]"
             : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
         }`}
       >
         {IconComponent ? <IconComponent size={18} /> : <Icon size={18} />}
-        {item.label}
-      </button>
+        {!isCollapsed && item.label}
+      </motion.button>
     );
   }
 
-  const navList = (
-    <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-      {NAV_ITEMS.map(renderNavItem)}
-
-      <div className="pt-3 pb-1">
-        <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
-          Connected Apps
-        </p>
-      </div>
-      {CONNECTED_APPS_ITEMS.map(renderNavItem)}
-
-      {org?.role === 'org_admin' && (
-        <div className="pt-2">
-          {renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck })}
+  // Desktop nav — adapts to collapsed state
+  const desktopNav = (
+    <nav className="flex-1 overflow-y-auto space-y-4 px-2">
+      {NAV_SECTIONS.map((section) => (
+        <div key={section.label}>
+          {!collapsed && (
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
+              {section.label}
+            </p>
+          )}
+          <div className="space-y-0.5">
+            {section.items.map((item) => renderNavItem(item))}
+          </div>
         </div>
-      )}
+      ))}
 
-      <div className="pt-2">
-        {BOTTOM_ITEMS.map(renderNavItem)}
+      <div>
+        {!collapsed && (
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
+            Workspace
+          </p>
+        )}
+        <div className="space-y-0.5">
+          {org?.is_admin && renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck })}
+          {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings })}
+        </div>
       </div>
     </nav>
   );
 
-  const logoutButton = (
-    <div className="px-3 pt-1">
-      <button
+  // Mobile nav always expanded
+  const mobileNav = (
+    <nav className="flex-1 px-3 overflow-y-auto space-y-4">
+      {NAV_SECTIONS.map((section) => (
+        <div key={section.label}>
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
+            {section.label}
+          </p>
+          <div className="space-y-0.5">
+            {section.items.map((item) => renderNavItem(item, true))}
+          </div>
+        </div>
+      ))}
+      <div>
+        <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">
+          Workspace
+        </p>
+        <div className="space-y-0.5">
+          {org?.is_admin && renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck }, true)}
+          {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings }, true)}
+        </div>
+      </div>
+    </nav>
+  );
+
+  const logoutButton = (collapsed) => (
+    <div className="px-2 pt-1">
+      <motion.button
         onClick={onLogout}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-red-500 transition-colors"
+        whileTap={{ scale: 0.93 }}
+        title={collapsed ? 'Sign out' : undefined}
+        className={`w-full flex items-center rounded-xl text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-red-500 transition-colors ${
+          collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'
+        }`}
       >
         <LogOut size={18} />
-        Sign out
-      </button>
+        {!collapsed && 'Sign out'}
+      </motion.button>
     </div>
   );
 
-  const userFooter = user && (
-    <div className="px-3 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3">
-      <Avatar name={user.name} picture={user.picture} className="w-9 h-9 text-sm" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-          {user.name}
-        </p>
-        {streak > 0 && (
-          <p className="flex items-center gap-1 text-xs font-semibold text-orange-500">
-            <Flame size={12} className="fill-orange-500" />
-            {streak} day streak
-          </p>
+  const userFooter = (isCollapsed) => {
+    const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.free;
+    return user && (
+      <div className={`py-3 border-t border-gray-100 dark:border-gray-800 flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-3'}`}>
+        <div className="relative flex-shrink-0">
+          <Avatar name={user.name} picture={user.picture} className="w-9 h-9 text-sm" />
+          {isCollapsed && (
+            <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold px-1 rounded leading-tight ${badge.className}`}>
+              {badge.label}
+            </span>
+          )}
+        </div>
+        {!isCollapsed && (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{user.name}</p>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded leading-tight flex-shrink-0 ${badge.className}`}>
+                {badge.label}
+              </span>
+            </div>
+            {streak > 0 && (
+              <p className="flex items-center gap-1 text-xs font-semibold text-orange-500">
+                <Flame size={12} className="fill-orange-500" />
+                {streak} day streak
+              </p>
+            )}
+          </div>
         )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
       {/* Mobile top bar */}
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between h-20 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <img
-          src={theme === "dark" ? logoDark : logoLight}
-          alt="Tempo"
-          className="h-16 w-auto"
-        />
+        <img src={theme === "dark" ? logoDark : logoLight} alt="Tempo" className="h-16 w-auto" />
         <button
           onClick={() => setMobileOpen((o) => !o)}
           className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -176,49 +251,43 @@ export default function Sidebar({
 
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
           <div className="relative w-64 max-w-[80%] bg-white dark:bg-gray-900 h-full flex flex-col py-4 shadow-xl">
             <div className="px-4 pb-4">
-              <img
-                src={theme === "dark" ? logoDark : logoLight}
-                alt="Tempo"
-                className="h-16 w-auto"
-              />
+              <img src={theme === "dark" ? logoDark : logoLight} alt="Tempo" className="h-16 w-auto" />
             </div>
-            {navList}
-            {logoutButton}
-            {userFooter}
+            {mobileNav}
+            {logoutButton(false)}
+            {userFooter(false)}
           </div>
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 md:w-60 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-30">
-        <div className="px-4 py-6 space-y-3">
-          <img
-            src={theme === "dark" ? logoDark : logoLight}
-            alt="Tempo"
-            className="h-16 w-auto"
-          />
-          {org && (
-            <div className="flex items-center gap-2 px-1">
-              {org.logo_url ? (
-                <img src={org.logo_url} alt={org.name} className="w-6 h-6 rounded object-contain flex-shrink-0" />
-              ) : (
-                <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
-                  <Building2 size={13} className="text-blue-500" />
-                </div>
-              )}
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 truncate">{org.name}</span>
-            </div>
+      <aside
+        className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-30 transition-all duration-200 overflow-hidden ${
+          collapsed ? 'md:w-14' : 'md:w-60'
+        }`}
+      >
+        {/* Header: logo + collapse toggle */}
+        <div className={`flex items-center border-b border-gray-100 dark:border-gray-800 ${collapsed ? 'justify-center py-4 px-2' : 'justify-between px-4 py-5'}`}>
+          {!collapsed && (
+            <img src={theme === "dark" ? logoDark : logoLight} alt="Tempo" className="h-12 w-auto" />
           )}
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+          >
+            {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+          </button>
         </div>
-        {navList}
-        {logoutButton}
-        {userFooter}
+
+        <div className="flex-1 overflow-y-auto py-3">
+          {desktopNav}
+        </div>
+        {logoutButton(collapsed)}
+        {userFooter(collapsed)}
       </aside>
     </>
   );

@@ -50,13 +50,14 @@ export function useAssignedTasks(auth) {
     );
 
     try {
-      await fetch(`/api/assigned-tasks/${taskId}/done`, {
+      const res = await fetch(`/api/assigned-tasks/${taskId}/done`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.accessToken}` },
         body: JSON.stringify({ done: newDone }),
       });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
     } catch {
-      // Roll back on error
+      // Roll back on network error or non-2xx response
       setAssignedTasks((prev) =>
         prev.map((t) => t.id === taskId ? { ...t, done: task.done, doneAt: task.doneAt } : t)
       );

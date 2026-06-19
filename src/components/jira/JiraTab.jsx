@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ExternalLink, RefreshCw, ChevronDown, Loader2, Circle, List, Columns, Play } from 'lucide-react';
+import Skeleton from '../ui/Skeleton';
 
 const PRIORITY_CONFIG = {
   Highest: { label: 'Highest', dot: 'bg-red-500', ring: 'ring-red-500/30' },
@@ -336,9 +337,48 @@ export default function JiraTab({ jira, onStartTimer }) {
 
       {/* Content */}
       {issuesLoading ? (
-        <div className="flex items-center gap-2 py-12 justify-center text-gray-500">
-          <Loader2 size={16} className="animate-spin" /> Loading issues…
-        </div>
+        view === 'list' ? (
+          <div className="space-y-2 overflow-y-auto">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-white/8 bg-white/4 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1.5 w-2.5 h-2.5 rounded-full bg-gray-700 animate-pulse flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <Skeleton className="h-3 w-14 bg-gray-700" />
+                      <Skeleton className={`h-3 bg-gray-700 ${i % 3 === 0 ? 'w-64' : i % 3 === 1 ? 'w-48' : 'w-56'}`} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-5 w-20 rounded-full bg-gray-700" />
+                      <Skeleton className="h-5 w-16 rounded-full bg-gray-700" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto flex-1 min-h-0 pb-2">
+            <div className="flex gap-3 items-start min-w-max">
+              {['To Do', 'In Progress', 'Done'].map((col) => (
+                <div key={col} className="w-72 flex-shrink-0">
+                  <div className="rounded-t-xl border-t-2 border-t-gray-600 bg-white/4 border-x border-b border-white/8 px-3 py-2.5 flex items-center gap-2">
+                    <Skeleton className="h-3 w-20 bg-gray-700" />
+                  </div>
+                  <div className="bg-white/[0.02] border-x border-b border-white/8 rounded-b-xl p-2 space-y-2 min-h-[120px]">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="rounded-xl border border-white/8 bg-white/4 p-3 space-y-2.5">
+                        <Skeleton className="h-4 w-16 rounded-full bg-gray-700" />
+                        <Skeleton className={`h-3.5 bg-gray-700 ${i % 2 === 0 ? 'w-full' : 'w-4/5'}`} />
+                        <Skeleton className="h-3 w-3/5 bg-gray-700" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <Circle size={32} className="mx-auto mb-3 opacity-30" />

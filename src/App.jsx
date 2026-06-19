@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Sidebar from './components/layout/Sidebar';
 import Toast from './components/layout/Toast';
@@ -16,6 +17,7 @@ import TimeTab from './components/time/TimeTab';
 import GlobalTimerBar from './components/layout/GlobalTimerBar';
 import UnderConstruction from './components/layout/UnderConstruction';
 import AdminTab from './components/org/AdminTab';
+import GoalsTab from './components/goals/GoalsTab';
 import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -28,6 +30,7 @@ import { useTimeTracking } from './hooks/useTimeTracking';
 import { DataProvider, useServerStorage, useDataLoading } from './context/DataContext';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import InviteAcceptScreen from './components/org/InviteAcceptScreen';
+import UpgradeModal from './components/billing/UpgradeModal';
 import { useOrg } from './hooks/useOrg';
 import { useAssignedTasks } from './hooks/useAssignedTasks';
 import {
@@ -48,7 +51,7 @@ export default function App() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
   const [theme, toggleTheme] = useTheme();
-  const { auth, login, loginWithEmail, registerWithEmail, logout: authLogout, isCalendarConnected } = useAuth();
+  const { auth, login, loginWithEmail, registerWithEmail, logout: authLogout, isCalendarConnected, plan, trialDaysLeft, isTrialExpired, isOnTrial, subscribe, refreshPlan } = useAuth();
 
   // Detect invite token in URL or sessionStorage (persists through login flow)
   const [inviteToken, setInviteToken] = useState(() => {
@@ -138,18 +141,35 @@ export default function App() {
           login={login}
           logout={logout}
           isCalendarConnected={isCalendarConnected}
+          plan={plan}
+          trialDaysLeft={trialDaysLeft}
+          isTrialExpired={isTrialExpired}
+          isOnTrial={isOnTrial}
+          subscribe={subscribe}
+          refreshPlan={refreshPlan}
         />
       </DataProvider>
     </ThemeProvider>
   );
 }
 
-function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnected }) {
+function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnected, plan, trialDaysLeft, isTrialExpired, isOnTrial, subscribe, refreshPlan }) {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('jira') ? 'jira' : 'today';
   });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [faviconDot, setFaviconDot] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Sync plan/trial from server on mount for email-auth users
+  // (Google OAuth users don't have a server-side JWT we can use here)
+  useEffect(() => {
+    if (auth?.provider === 'email' && !auth?.user?.trial_ends_at) {
+      refreshPlan();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Swap favicon — red dot overlay while timer is active
   useEffect(() => {
@@ -256,6 +276,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   const dataLoading = useDataLoading();
   const { getNewlyUnlocked } = useAchievements();
   const prevLevelRef = useRef(null);
+  const celebratedStreaksRef = useRef(new Set());
+  const orgSyncTimerRef = useRef(null);
 
   useNotifications(meetings);
 
@@ -592,23 +614,47 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats, jobs, tasks, meetings, earned]);
 
-  // --- Corporate achievement sync ---
+  // --- Corporate achievement sync (debounced 8 s so rapid stat changes merge into one request) ---
   useEffect(() => {
     if (!org.org?.id || dataLoading) return;
-    const level = getLevelInfo(stats.totalXp).level;
-    const focusMinutes = Object.values(stats.history || {}).reduce((s, d) => s + (d.focusMinutes || 0), 0);
-    org.syncOrgAchievements(org.org.id, {
-      level,
-      tasksCompleted: stats.tasksCompleted,
-      totalXp: stats.totalXp,
-      streak: stats.streak,
-      focusMinutes,
-    }).then(({ unlocked }) => {
-      if (!unlocked.length) return;
-      const bonusXp = unlocked.reduce((s, a) => s + a.xp_reward, 0);
-      if (bonusXp > 0) setStats((prev) => ({ ...prev, totalXp: prev.totalXp + bonusXp }));
-      unlocked.forEach((a) => pushToast(`Company achievement unlocked: ${a.name} (+${a.xp_reward} XP)`));
-    }).catch(() => {});
+    clearTimeout(orgSyncTimerRef.current);
+    orgSyncTimerRef.current = setTimeout(() => {
+      const level = getLevelInfo(stats.totalXp).level;
+      const focusMinutes = Object.values(stats.history || {}).reduce((s, d) => s + (d.focusMinutes || 0), 0);
+      org.syncOrgAchievements(org.org.id, {
+        level,
+        tasksCompleted: stats.tasksCompleted,
+        totalXp: stats.totalXp,
+        streak: stats.streak,
+        focusMinutes,
+      }).then(({ unlocked }) => {
+        if (!unlocked.length) return;
+        const bonusXp = unlocked.reduce((s, a) => s + a.xp_reward, 0);
+        if (bonusXp > 0) setStats((prev) => ({ ...prev, totalXp: prev.totalXp + bonusXp }));
+        unlocked.forEach((a) => {
+          pushToast(`Company achievement unlocked: ${a.name} (+${a.xp_reward} XP)`);
+          org.createCelebration(org.org.id, {
+            event_type: 'achievement_unlocked',
+            title: `Achievement unlocked: ${a.name}`,
+            description: a.description || '',
+            icon: a.icon || '🏆',
+          }).catch(() => {});
+        });
+      }).catch(() => {});
+
+      // Sync team goal contributions
+      org.getMyTeamsGoals(org.org.id).then((goals) => {
+        goals.forEach((goal) => {
+          org.contributeToGoal(org.org.id, goal.id, { focusMinutes, totalXp: stats.totalXp })
+            .then(({ completed }) => {
+              if (completed && !goal.completed_at) {
+                pushToast(`🏁 Team goal completed: ${goal.name}!`);
+              }
+            }).catch(() => {});
+        });
+      }).catch(() => {});
+    }, 8000);
+    return () => clearTimeout(orgSyncTimerRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats.tasksCompleted, stats.totalXp, stats.streak, org.org?.id, dataLoading]);
 
@@ -617,7 +663,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     if (dataLoading) return;
     const level = getLevelInfo(stats.totalXp).level;
     if (prevLevelRef.current === null) {
-      prevLevelRef.current = level; // establish baseline after real data loads
+      prevLevelRef.current = level;
       return;
     }
     if (level > prevLevelRef.current) {
@@ -626,7 +672,23 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
     }
   }, [stats.totalXp, dataLoading]);
 
-  const profileHasSelections = (profile.usageType?.length + profile.role?.length + profile.specialty?.length + profile.goals?.length) > 0;
+  // --- Streak milestones → celebration feed ---
+  useEffect(() => {
+    if (!org.org?.id || dataLoading) return;
+    const MILESTONES = [7, 14, 30, 60, 100];
+    const hit = MILESTONES.find((m) => stats.streak === m && !celebratedStreaksRef.current.has(m));
+    if (!hit) return;
+    celebratedStreaksRef.current.add(hit);
+    org.createCelebration(org.org.id, {
+      event_type: 'streak_milestone',
+      title: `${hit}-day streak!`,
+      description: `Kept the momentum going for ${hit} days straight.`,
+      icon: '🔥',
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.streak, org.org?.id, dataLoading]);
+
+  const profileHasSelections = ((profile.usageType?.length ?? 0) + (profile.role?.length ?? 0) + (profile.specialty?.length ?? 0) + (profile.goals?.length ?? 0)) > 0;
 
   // Tab title + favicon pulse while timer is running
   useEffect(() => {
@@ -666,13 +728,82 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   }
 
   return (
-    <div className={`min-h-screen transition-colors md:pl-60 ${timeTracking.timer.active && activeTab !== 'time' ? 'pb-14' : ''}`}>
+    <div className={`min-h-screen transition-all duration-200 ${sidebarCollapsed ? 'md:pl-14' : 'md:pl-60'} ${timeTracking.timer.active && activeTab !== 'time' ? 'pb-14' : ''}`}>
       <div className="fixed inset-0 -z-10 overflow-hidden bg-gray-50 dark:bg-gray-950">
         <div className="absolute inset-0" style={{ backgroundImage: `url(${heroBgImg})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', opacity: 0.1 }} />
       </div>
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} streak={stats.streak} theme={theme} user={auth.user} onLogout={logout} org={org.org} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        streak={stats.streak}
+        theme={theme}
+        user={auth.user}
+        onLogout={logout}
+        org={org.org}
+        plan={plan}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((s) => !s)}
+      />
       <Toast toasts={toasts} />
+
+      {/* Trial banner */}
+      {isOnTrial && (
+        <div className={`flex items-center justify-between gap-3 px-4 py-2 text-xs font-medium ${trialDaysLeft <= 3 ? 'bg-red-500 text-white' : trialDaysLeft <= 7 ? 'bg-amber-400 text-amber-950' : 'bg-blue-600 text-white'}`}>
+          <span>
+            {trialDaysLeft === 0
+              ? 'Your free trial expires today.'
+              : `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left in your free trial.`}
+          </span>
+          <button
+            onClick={() => setShowUpgradeModal(true)}
+            className="flex-shrink-0 px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 font-semibold transition-colors"
+          >
+            Upgrade now
+          </button>
+        </div>
+      )}
+
+      {/* Trial expired gate */}
+      {isTrialExpired && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-gray-950/90 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center mx-auto">
+              <span className="text-2xl">⏰</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Your trial has ended</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Choose a plan to keep access to all your tasks, goals, and data.
+            </p>
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors"
+            >
+              Choose a plan
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade modal */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <UpgradeModal
+            onClose={() => setShowUpgradeModal(false)}
+            onSubscribe={subscribe}
+            userEmail={auth.user?.email}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
 
       {activeTab === 'today' && (
         <TodayTab
@@ -750,6 +881,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
         <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} org={org.org} orgActions={org} />
       )}
 
+      {activeTab === 'goals' && (
+        <GoalsTab org={org.org} orgActions={org} />
+      )}
+
       {activeTab === 'jira' && (
         <JiraTab
           jira={jira}
@@ -804,11 +939,16 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onUpdateProfile={setProfile}
           jira={jira}
           auth={auth}
+          plan={plan}
           org={org.org}
           orgActions={org}
           onNavigate={setActiveTab}
+          onUpgrade={() => setShowUpgradeModal(true)}
         />
       )}
+
+        </motion.div>
+      </AnimatePresence>
 
       {activeTab !== 'time' && (
         <GlobalTimerBar

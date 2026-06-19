@@ -21,8 +21,28 @@ async function getOrgRole(orgId, userId) {
 async function requireOrgRole(req, res, orgId, ...allowedRoles) {
   const role = await getOrgRole(orgId, req.userId);
   if (!role) { res.status(403).json({ error: 'Not a member of this organization' }); return null; }
-  if (!allowedRoles.includes(role)) { res.status(403).json({ error: 'Insufficient permissions' }); return null; }
-  return role;
+  if (allowedRoles.includes(role)) return role;
+  // Also allow any custom role with is_admin = 1
+  const [roleRows] = await pool.query('SELECT is_admin FROM org_roles WHERE org_id = ? AND name = ?', [orgId, role]);
+  if (roleRows[0]?.is_admin) return role;
+  res.status(403).json({ error: 'Insufficient permissions' });
+  return null;
+}
+
+const DEFAULT_ROLES = [
+  { name: 'org_admin',       color: '#3b82f6', is_admin: 1, permissions: ['manage_members','manage_teams','manage_roles','manage_goals','manage_achievements','assign_tasks','view_reports'] },
+  { name: 'project_manager', color: '#8b5cf6', is_admin: 0, permissions: ['manage_teams','manage_goals','manage_achievements','assign_tasks','view_reports'] },
+  { name: 'team_lead',       color: '#10b981', is_admin: 0, permissions: ['manage_teams','manage_goals','assign_tasks'] },
+  { name: 'member',          color: '#6b7280', is_admin: 0, permissions: [] },
+];
+
+async function seedRoles(orgId) {
+  for (const r of DEFAULT_ROLES) {
+    await pool.query(
+      'INSERT IGNORE INTO org_roles (org_id, name, color, is_admin, permissions) VALUES (?, ?, ?, ?, ?)',
+      [orgId, r.name, r.color, r.is_admin, JSON.stringify(r.permissions)]
+    );
+  }
 }
 
 // ── Org ───────────────────────────────────────────────────────────────────────
@@ -31,6 +51,14 @@ async function requireOrgRole(req, res, orgId, ...allowedRoles) {
 router.post('/', async (req, res) => {
   const { name } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+
+  const [[userRow]] = await pool.query('SELECT subscription_plan FROM users WHERE id = ?', [req.userId]);
+  if (!userRow || !['team', 'enterprise'].includes(userRow.subscription_plan)) {
+    return res.status(403).json({
+      error: 'Creating an organization requires a Team or Enterprise plan.',
+      code: 'SUBSCRIPTION_REQUIRED',
+    });
+  }
 
   let slug = slugify(name.trim());
   // ensure unique slug
@@ -48,13 +76,15 @@ router.post('/', async (req, res) => {
     [orgId, req.userId, 'org_admin']
   );
 
+  await seedRoles(orgId);
+
   res.status(201).json({ id: orgId, name: name.trim(), slug });
 });
 
 // Get the current user's org membership (returns null if not in an org)
 router.get('/me', async (req, res) => {
   const [rows] = await pool.query(
-    `SELECT o.id, o.name, o.slug, o.logo_url, om.role
+    `SELECT o.id, o.name, o.slug, o.logo_url, om.role, om.org_xp
      FROM org_members om
      JOIN organizations o ON o.id = om.org_id
      WHERE om.user_id = ?
@@ -62,7 +92,13 @@ router.get('/me', async (req, res) => {
     [req.userId]
   );
   if (!rows.length) return res.json(null);
-  res.json(rows[0]);
+  const member = rows[0];
+  const [roleRows] = await pool.query(
+    'SELECT is_admin FROM org_roles WHERE org_id = ? AND name = ?',
+    [member.id, member.role]
+  );
+  const is_admin = member.role === 'org_admin' || !!roleRows[0]?.is_admin;
+  res.json({ ...member, is_admin });
 });
 
 // Get org details + members (must be a member)
@@ -71,15 +107,22 @@ router.get('/:orgId', async (req, res) => {
   const role = await getOrgRole(orgId, req.userId);
   if (!role) return res.status(403).json({ error: 'Not a member of this organization' });
 
-  const [[org]] = await pool.query('SELECT id, name, slug, logo_url, created_at FROM organizations WHERE id = ?', [orgId]);
+  const [[org]] = await pool.query(
+    'SELECT id, name, slug, logo_url, created_at, allow_personal_accounts, allow_multi_org_members FROM organizations WHERE id = ?',
+    [orgId]
+  );
   if (!org) return res.status(404).json({ error: 'Organization not found' });
 
   const [members] = await pool.query(
-    `SELECT om.user_id, om.role, om.joined_at, u.name, u.email, u.picture
-     FROM org_members om JOIN users u ON u.id = om.user_id
+    `SELECT om.user_id, om.role, om.joined_at, om.org_xp, u.name, u.email, u.picture,
+            COUNT(at.id) AS tasks_completed
+     FROM org_members om
+     JOIN users u ON u.id = om.user_id
+     LEFT JOIN assigned_tasks at ON at.org_id = ? AND at.assigned_to = om.user_id AND at.done = 1
      WHERE om.org_id = ?
+     GROUP BY om.user_id, om.role, om.joined_at, om.org_xp, u.name, u.email, u.picture
      ORDER BY om.joined_at ASC`,
-    [orgId]
+    [orgId, orgId]
   );
 
   res.json({ ...org, members, myRole: role });
@@ -94,7 +137,34 @@ router.patch('/:orgId', async (req, res) => {
   const updates = [];
   const vals = [];
   if (name?.trim()) { updates.push('name = ?'); vals.push(name.trim()); }
-  if (logo_url !== undefined) { updates.push('logo_url = ?'); vals.push(logo_url || null); }
+  if (logo_url !== undefined) {
+    if (logo_url) {
+      const safeDataUri = /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(logo_url);
+      const safeHttps   = /^https:\/\//i.test(logo_url);
+      if (!safeDataUri && !safeHttps) {
+        return res.status(400).json({ error: 'logo_url must be an https URL or a PNG/JPG/GIF/WebP data URI' });
+      }
+    }
+    updates.push('logo_url = ?');
+    vals.push(logo_url || null);
+  }
+  if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+
+  vals.push(orgId);
+  await pool.query(`UPDATE organizations SET ${updates.join(', ')} WHERE id = ?`, vals);
+  res.status(204).end();
+});
+
+// Update membership settings (admin only)
+router.patch('/:orgId/settings', async (req, res) => {
+  const { orgId } = req.params;
+  if (!await requireOrgRole(req, res, orgId, 'org_admin')) return;
+
+  const { allow_personal_accounts, allow_multi_org_members } = req.body;
+  const updates = [];
+  const vals = [];
+  if (allow_personal_accounts !== undefined) { updates.push('allow_personal_accounts = ?'); vals.push(allow_personal_accounts ? 1 : 0); }
+  if (allow_multi_org_members !== undefined) { updates.push('allow_multi_org_members = ?'); vals.push(allow_multi_org_members ? 1 : 0); }
   if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
 
   vals.push(orgId);
@@ -110,8 +180,9 @@ router.patch('/:orgId/members/:userId/role', async (req, res) => {
   if (!await requireOrgRole(req, res, orgId, 'org_admin')) return;
 
   const { role } = req.body;
-  const valid = ['org_admin', 'project_manager', 'team_lead', 'member'];
-  if (!valid.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!role?.trim()) return res.status(400).json({ error: 'role is required' });
+  const [valid] = await pool.query('SELECT id FROM org_roles WHERE org_id = ? AND name = ?', [orgId, role]);
+  if (!valid.length) return res.status(400).json({ error: 'Invalid role for this organization' });
 
   await pool.query('UPDATE org_members SET role = ? WHERE org_id = ? AND user_id = ?', [role, orgId, userId]);
   res.status(204).end();
@@ -148,8 +219,8 @@ router.post('/:orgId/invites', async (req, res) => {
   const { email, role = 'member' } = req.body;
   if (!email?.trim()) return res.status(400).json({ error: 'email is required' });
 
-  const valid = ['project_manager', 'team_lead', 'member'];
-  if (!valid.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  const [validRole] = await pool.query('SELECT id FROM org_roles WHERE org_id = ? AND name = ?', [orgId, role]);
+  if (!validRole.length) return res.status(400).json({ error: 'Invalid role for this organization' });
 
   // Check if already a member
   const [users] = await pool.query('SELECT id FROM users WHERE email = ?', [email.trim()]);
@@ -203,6 +274,30 @@ router.post('/invite/:token/accept', async (req, res) => {
   if (invite.accepted_at) return res.status(410).json({ error: 'Invite already accepted' });
   if (new Date(invite.expires_at) < new Date()) return res.status(410).json({ error: 'Invite expired' });
 
+  // Check org membership settings
+  const [[org]] = await pool.query(
+    'SELECT allow_personal_accounts, allow_multi_org_members FROM organizations WHERE id = ?',
+    [invite.org_id]
+  );
+  if (org) {
+    const [[userRow]] = await pool.query(
+      'SELECT subscription_plan FROM users WHERE id = ?',
+      [req.userId]
+    );
+    if (!org.allow_personal_accounts && ['trial', 'personal_pro'].includes(userRow?.subscription_plan)) {
+      return res.status(403).json({ error: 'This organization only accepts members on a Team or Enterprise plan.' });
+    }
+    if (!org.allow_multi_org_members) {
+      const [otherOrgs] = await pool.query(
+        'SELECT id FROM org_members WHERE user_id = ? AND org_id != ?',
+        [req.userId, invite.org_id]
+      );
+      if (otherOrgs.length) {
+        return res.status(403).json({ error: 'This organization does not allow members who belong to other organizations.' });
+      }
+    }
+  }
+
   // Verify the logged-in user's email matches the invite
   const [users] = await pool.query('SELECT email FROM users WHERE id = ?', [req.userId]);
   if (!users.length || users[0].email.toLowerCase() !== invite.email.toLowerCase()) {
@@ -218,6 +313,72 @@ router.post('/invite/:token/accept', async (req, res) => {
   await pool.query('UPDATE org_invites SET accepted_at = NOW() WHERE token = ?', [token]);
 
   res.status(200).json({ orgId: invite.org_id, role: invite.role });
+});
+
+// ── Roles ─────────────────────────────────────────────────────────────────────
+
+// List roles for an org (seeds defaults on first call)
+router.get('/:orgId/roles', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member of this organization' });
+
+  // Seed defaults if this org has no roles yet
+  const [[{ cnt }]] = await pool.query('SELECT COUNT(*) AS cnt FROM org_roles WHERE org_id = ?', [orgId]);
+  if (cnt === 0) await seedRoles(orgId);
+
+  const [rows] = await pool.query(
+    'SELECT id, name, color, is_admin, permissions FROM org_roles WHERE org_id = ? ORDER BY is_admin DESC, created_at ASC',
+    [orgId]
+  );
+  res.json(rows.map((r) => ({ ...r, permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions })));
+});
+
+// Create a role (admin only)
+router.post('/:orgId/roles', async (req, res) => {
+  const { orgId } = req.params;
+  if (!await requireOrgRole(req, res, orgId, 'org_admin')) return;
+
+  const { name, color = '#6b7280', is_admin = 0, permissions = [] } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+
+  const [result] = await pool.query(
+    'INSERT INTO org_roles (org_id, name, color, is_admin, permissions) VALUES (?, ?, ?, ?, ?)',
+    [orgId, name.trim(), color, is_admin ? 1 : 0, JSON.stringify(permissions)]
+  );
+  res.status(201).json({ id: result.insertId, name: name.trim(), color, is_admin: is_admin ? 1 : 0, permissions });
+});
+
+// Update a role (admin only)
+router.patch('/:orgId/roles/:roleId', async (req, res) => {
+  const { orgId, roleId } = req.params;
+  if (!await requireOrgRole(req, res, orgId, 'org_admin')) return;
+
+  const updates = []; const vals = [];
+  if (req.body.name?.trim()) { updates.push('name = ?'); vals.push(req.body.name.trim()); }
+  if (req.body.color) { updates.push('color = ?'); vals.push(req.body.color); }
+  if (req.body.is_admin !== undefined) { updates.push('is_admin = ?'); vals.push(req.body.is_admin ? 1 : 0); }
+  if (req.body.permissions !== undefined) { updates.push('permissions = ?'); vals.push(JSON.stringify(req.body.permissions)); }
+  if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+
+  vals.push(roleId, orgId);
+  await pool.query(`UPDATE org_roles SET ${updates.join(', ')} WHERE id = ? AND org_id = ?`, vals);
+  res.status(204).end();
+});
+
+// Delete a role (admin only — block if members are assigned it)
+router.delete('/:orgId/roles/:roleId', async (req, res) => {
+  const { orgId, roleId } = req.params;
+  if (!await requireOrgRole(req, res, orgId, 'org_admin')) return;
+
+  const [[role]] = await pool.query('SELECT name FROM org_roles WHERE id = ? AND org_id = ?', [roleId, orgId]);
+  if (!role) return res.status(404).json({ error: 'Role not found' });
+
+  const [[{ cnt }]] = await pool.query('SELECT COUNT(*) AS cnt FROM org_members WHERE org_id = ? AND role = ?', [orgId, role.name]);
+  if (cnt > 0) return res.status(409).json({ error: `${cnt} member(s) still have this role. Reassign them first.` });
+
+  await pool.query('DELETE FROM org_roles WHERE id = ? AND org_id = ?', [roleId, orgId]);
+  res.status(204).end();
 });
 
 // ── Teams ─────────────────────────────────────────────────────────────────────
@@ -457,40 +618,50 @@ router.post('/:orgId/achievements/sync', async (req, res) => {
   if (!achievements.length) return res.json({ unlocked: [] });
 
   const ids = achievements.map((a) => a.id);
-  const [rows] = await pool.query(
-    'SELECT achievement_id, progress, unlocked_at FROM corporate_achievement_progress WHERE user_id = ? AND achievement_id IN (?)',
+  const [existing] = await pool.query(
+    'SELECT achievement_id, unlocked_at FROM corporate_achievement_progress WHERE user_id = ? AND achievement_id IN (?)',
     [req.userId, ids]
   );
-  const progressMap = Object.fromEntries(rows.map((r) => [r.achievement_id, r]));
+  const alreadyUnlockedSet = new Set(
+    existing.filter((r) => r.unlocked_at != null).map((r) => r.achievement_id)
+  );
+
+  const criteriaValues = {
+    level,
+    tasks_completed: tasksCompleted,
+    focus_hours: Math.floor(focusMinutes / 60),
+    streak_days: streak,
+    xp_total: totalXp,
+  };
 
   const newlyUnlocked = [];
+  const now = new Date();
 
-  for (const a of achievements) {
-    let value = 0;
-    if (a.criteria_type === 'level')            value = level;
-    else if (a.criteria_type === 'tasks_completed') value = tasksCompleted;
-    else if (a.criteria_type === 'focus_hours') value = Math.floor(focusMinutes / 60);
-    else if (a.criteria_type === 'streak_days') value = streak;
-    else if (a.criteria_type === 'xp_total')    value = totalXp;
+  // Build rows for a single bulk UPSERT — avoids N round-trips to the DB
+  const upsertRows = achievements.map((a) => {
+    const value = criteriaValues[a.criteria_type] ?? 0;
+    const alreadyDone = alreadyUnlockedSet.has(a.id);
+    const shouldUnlock = !alreadyDone && value >= a.criteria_value;
+    if (shouldUnlock) newlyUnlocked.push(a);
+    return [req.userId, a.id, value, shouldUnlock ? now : null];
+  });
 
-    const existing = progressMap[a.id];
-    const alreadyUnlocked = existing?.unlocked_at != null;
-    const shouldUnlock = value >= a.criteria_value;
+  await pool.query(
+    `INSERT INTO corporate_achievement_progress (user_id, achievement_id, progress, unlocked_at)
+     VALUES ?
+     ON DUPLICATE KEY UPDATE
+       progress = GREATEST(progress, VALUES(progress)),
+       unlocked_at = COALESCE(unlocked_at, VALUES(unlocked_at))`,
+    [upsertRows]
+  );
 
-    if (!alreadyUnlocked && shouldUnlock) {
+  // Award org XP for newly unlocked achievements
+  if (newlyUnlocked.length) {
+    const orgXpGained = newlyUnlocked.reduce((sum, a) => sum + (a.xp_reward || 0), 0);
+    if (orgXpGained > 0) {
       await pool.query(
-        `INSERT INTO corporate_achievement_progress (user_id, achievement_id, progress, unlocked_at)
-         VALUES (?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE progress = ?, unlocked_at = COALESCE(unlocked_at, NOW())`,
-        [req.userId, a.id, value, value]
-      );
-      newlyUnlocked.push(a);
-    } else if (!alreadyUnlocked) {
-      await pool.query(
-        `INSERT INTO corporate_achievement_progress (user_id, achievement_id, progress)
-         VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE progress = GREATEST(progress, ?)`,
-        [req.userId, a.id, value, value]
+        'UPDATE org_members SET org_xp = org_xp + ? WHERE org_id = ? AND user_id = ?',
+        [orgXpGained, orgId, req.userId]
       );
     }
   }
@@ -506,6 +677,9 @@ router.get('/:orgId/teams/:teamId/goals', async (req, res) => {
   const role = await getOrgRole(orgId, req.userId);
   if (!role) return res.status(403).json({ error: 'Not a member of this organization' });
 
+  const [teamCheck] = await pool.query('SELECT id FROM teams WHERE id = ? AND org_id = ?', [teamId, orgId]);
+  if (!teamCheck.length) return res.status(404).json({ error: 'Team not found' });
+
   const [goals] = await pool.query(
     'SELECT * FROM team_goals WHERE team_id = ? ORDER BY period_start DESC',
     [teamId]
@@ -518,6 +692,9 @@ router.post('/:orgId/teams/:teamId/goals', async (req, res) => {
   const { orgId, teamId } = req.params;
   const orgRole = await getOrgRole(orgId, req.userId);
   if (!orgRole) return res.status(403).json({ error: 'Not a member of this organization' });
+
+  const [teamCheck] = await pool.query('SELECT id FROM teams WHERE id = ? AND org_id = ?', [teamId, orgId]);
+  if (!teamCheck.length) return res.status(404).json({ error: 'Team not found' });
 
   if (!['org_admin', 'project_manager'].includes(orgRole)) {
     const [lead] = await pool.query(
@@ -538,6 +715,177 @@ router.post('/:orgId/teams/:teamId/goals', async (req, res) => {
     [teamId, name.trim(), description, criteria_type, target_value, period_start, period_end, reward_description, req.userId]
   );
   res.status(201).json({ id: result.insertId });
+});
+
+// Update a team goal
+router.patch('/:orgId/teams/:teamId/goals/:goalId', async (req, res) => {
+  const { orgId, teamId, goalId } = req.params;
+  const orgRole = await getOrgRole(orgId, req.userId);
+  if (!orgRole) return res.status(403).json({ error: 'Not a member' });
+
+  const [teamCheck] = await pool.query('SELECT id FROM teams WHERE id = ? AND org_id = ?', [teamId, orgId]);
+  if (!teamCheck.length) return res.status(404).json({ error: 'Team not found' });
+
+  if (!['org_admin', 'project_manager'].includes(orgRole)) {
+    const [lead] = await pool.query("SELECT id FROM team_members WHERE team_id = ? AND user_id = ? AND role = 'lead'", [teamId, req.userId]);
+    if (!lead.length) return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+  const allowed = ['name', 'description', 'target_value', 'period_start', 'period_end', 'reward_description'];
+  const updates = []; const vals = [];
+  for (const f of allowed) { if (req.body[f] !== undefined) { updates.push(`${f} = ?`); vals.push(req.body[f]); } }
+  if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+  vals.push(goalId, teamId);
+  await pool.query(`UPDATE team_goals SET ${updates.join(', ')} WHERE id = ? AND team_id = ?`, vals);
+  res.status(204).end();
+});
+
+// Delete a team goal
+router.delete('/:orgId/teams/:teamId/goals/:goalId', async (req, res) => {
+  const { orgId, teamId, goalId } = req.params;
+  const orgRole = await getOrgRole(orgId, req.userId);
+  if (!orgRole) return res.status(403).json({ error: 'Not a member' });
+
+  const [teamCheck] = await pool.query('SELECT id FROM teams WHERE id = ? AND org_id = ?', [teamId, orgId]);
+  if (!teamCheck.length) return res.status(404).json({ error: 'Team not found' });
+
+  if (!['org_admin', 'project_manager'].includes(orgRole)) {
+    const [lead] = await pool.query("SELECT id FROM team_members WHERE team_id = ? AND user_id = ? AND role = 'lead'", [teamId, req.userId]);
+    if (!lead.length) return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+  await pool.query('DELETE FROM team_goal_contributions WHERE goal_id = ?', [goalId]);
+  await pool.query('DELETE FROM team_goals WHERE id = ? AND team_id = ?', [goalId, teamId]);
+  res.status(204).end();
+});
+
+// Get all active goals for teams the current user belongs to
+router.get('/:orgId/my-teams/goals', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const [myTeams] = await pool.query(
+    'SELECT team_id FROM team_members WHERE user_id = ?',
+    [req.userId]
+  );
+  if (!myTeams.length) return res.json([]);
+
+  const teamIds = myTeams.map((t) => t.team_id);
+  const [goals] = await pool.query(
+    `SELECT g.*, t.name AS team_name, t.color AS team_color
+     FROM team_goals g
+     JOIN teams t ON t.id = g.team_id
+     WHERE g.team_id IN (?) AND g.period_end >= CURDATE()
+     ORDER BY g.period_end ASC`,
+    [teamIds]
+  );
+
+  // Attach my contribution to each goal
+  const goalIds = goals.map((g) => g.id);
+  let myContribs = [];
+  if (goalIds.length) {
+    [myContribs] = await pool.query(
+      'SELECT goal_id, value FROM team_goal_contributions WHERE user_id = ? AND goal_id IN (?)',
+      [req.userId, goalIds]
+    );
+  }
+  const contribMap = Object.fromEntries(myContribs.map((c) => [c.goal_id, c.value]));
+  res.json(goals.map((g) => ({ ...g, myContribution: contribMap[g.id] ?? 0 })));
+});
+
+// Contribute to a team goal (client reports stats; server aggregates + checks completion)
+router.post('/:orgId/goals/:goalId/contribute', async (req, res) => {
+  const { orgId, goalId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const [goalRows] = await pool.query(
+    'SELECT g.* FROM team_goals g JOIN teams t ON t.id = g.team_id WHERE g.id = ? AND t.org_id = ?',
+    [goalId, orgId]
+  );
+  if (!goalRows.length) return res.status(404).json({ error: 'Goal not found' });
+  const goal = goalRows[0];
+
+  let value = 0;
+  if (goal.criteria_type === 'tasks_completed') {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM assigned_tasks
+       WHERE assigned_to = ? AND done = TRUE AND done_at >= ? AND done_at < DATE_ADD(?, INTERVAL 1 DAY)`,
+      [req.userId, goal.period_start, goal.period_end]
+    );
+    value = rows[0].cnt;
+  } else if (goal.criteria_type === 'focus_hours') {
+    value = Math.floor((req.body.focusMinutes || 0) / 60);
+  } else if (goal.criteria_type === 'xp_total') {
+    value = req.body.totalXp || 0;
+  }
+
+  // Upsert contribution
+  await pool.query(
+    `INSERT INTO team_goal_contributions (goal_id, user_id, value) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE value = ?`,
+    [goalId, req.userId, value, value]
+  );
+
+  // Re-aggregate current_value
+  const [[{ total }]] = await pool.query(
+    'SELECT COALESCE(SUM(value), 0) AS total FROM team_goal_contributions WHERE goal_id = ?',
+    [goalId]
+  );
+
+  const wasComplete = goal.completed_at != null;
+  const nowComplete = total >= goal.target_value;
+
+  await pool.query('UPDATE team_goals SET current_value = ? WHERE id = ?', [total, goalId]);
+
+  if (!wasComplete && nowComplete) {
+    await pool.query('UPDATE team_goals SET completed_at = NOW() WHERE id = ?', [goalId]);
+    // Fire celebration
+    const [teamRows] = await pool.query('SELECT name FROM teams WHERE id = ?', [goal.team_id]);
+    const teamName = teamRows[0]?.name || 'Your team';
+    await pool.query(
+      `INSERT INTO org_celebrations (org_id, team_id, event_type, title, description, icon)
+       VALUES (?, ?, 'goal_completed', ?, ?, '🏁')`,
+      [orgId, goal.team_id, `Team goal achieved!`, `${teamName} completed "${goal.name}"${goal.reward_description ? ` — ${goal.reward_description}` : ''}`]
+    );
+  }
+
+  res.json({ current_value: total, completed: nowComplete });
+});
+
+// ── Celebrations feed ─────────────────────────────────────────────────────────
+
+router.get('/:orgId/celebrations', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const [rows] = await pool.query(
+    `SELECT c.*, u.name AS user_name, u.picture AS user_picture, t.name AS team_name
+     FROM org_celebrations c
+     LEFT JOIN users u ON u.id = c.user_id
+     LEFT JOIN teams t ON t.id = c.team_id
+     WHERE c.org_id = ?
+     ORDER BY c.created_at DESC
+     LIMIT 50`,
+    [orgId]
+  );
+  res.json(rows);
+});
+
+router.post('/:orgId/celebrations', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { event_type, title, description = '', icon = '🎉' } = req.body;
+  if (!event_type || !title) return res.status(400).json({ error: 'event_type and title required' });
+
+  await pool.query(
+    `INSERT INTO org_celebrations (org_id, user_id, event_type, title, description, icon)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [orgId, req.userId, event_type, title, description, icon]
+  );
+  res.status(201).end();
 });
 
 // ── Assigned tasks (PM management) ───────────────────────────────────────────

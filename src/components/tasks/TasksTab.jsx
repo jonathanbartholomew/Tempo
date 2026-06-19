@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { ChevronDown, ChevronUp, List, CalendarDays, CheckCircle2, Calendar, CalendarSearch, UserCheck, Plus, Trash2, RefreshCw, Pencil } from 'lucide-react';
+import { DndContext, DragOverlay, useDroppable, useDraggable, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronDown, ChevronUp, List, CalendarDays, LayoutGrid, CheckCircle2, Calendar, CalendarSearch, UserCheck, Plus, Trash2, RefreshCw, Pencil } from 'lucide-react';
 import AssignTaskModal from './AssignTaskModal';
 import TaskRow from '../today/TaskRow';
 import QuickAdd from '../today/QuickAdd';
@@ -170,6 +172,248 @@ function AgendaView({ tasks, meetings, googleEvents, jobs, timeFormat, onToggleT
   );
 }
 
+// ─── Kanban View ─────────────────────────────────────────────────────────────
+function KanbanCard({ task, job, onToggle, onDelete, trackedMinutes }) {
+  return (
+    <div
+      className={`bg-white dark:bg-gray-900 rounded-xl border px-3 py-2.5 space-y-1.5 shadow-sm group transition-opacity ${task.done ? 'opacity-60 border-gray-100 dark:border-gray-800' : 'border-gray-200 dark:border-gray-800'}`}
+      style={job ? { borderLeftColor: job.color, borderLeftWidth: 3 } : {}}
+    >
+      <div className="flex items-start gap-2">
+        <button onClick={() => onToggle(task.id)} className="flex-shrink-0 mt-0.5">
+          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${task.done ? 'bg-green-500 border-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-400'}`}>
+            {task.done && (
+              <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </button>
+        <p className={`text-sm font-medium flex-1 leading-snug ${task.done ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+          {task.title}
+        </p>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 dark:text-gray-600 hover:text-red-500"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap pl-6">
+        {job && <span className="text-[10px] font-medium" style={{ color: job.color }}>{job.name}</span>}
+        {task.date && <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLong(task.date)}</span>}
+        {(task.priority === 'high' || task.priority === 'urgent' || task.priority === 'medium') && (
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+            task.priority === 'high' || task.priority === 'urgent'
+              ? 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
+              : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+          }`}>{task.priority}</span>
+        )}
+        {trackedMinutes > 0 && <span className="text-[10px] text-indigo-400 dark:text-indigo-500">{fmtMinutes(trackedMinutes)}</span>}
+      </div>
+    </div>
+  );
+}
+
+function getTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function DroppableColumn({ id, bg, isOver, header, dot, label, count, children, collapsible, expanded, onToggleExpand }) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${bg} rounded-2xl p-3 space-y-2 min-h-48 transition-all ${isOver ? 'ring-2 ring-inset ring-blue-400 dark:ring-blue-500' : ''}`}
+    >
+      {collapsible ? (
+        <button
+          onClick={onToggleExpand}
+          className="w-full flex items-center gap-2 px-1 pb-1 hover:opacity-80 transition-opacity"
+        >
+          <div className={`w-2 h-2 rounded-full ${dot}`} />
+          <h3 className={`text-xs font-semibold uppercase tracking-wider ${header}`}>{label}</h3>
+          <span className="text-xs text-gray-400 dark:text-gray-600 ml-auto">{count}</span>
+          {expanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 px-1 pb-1">
+          <div className={`w-2 h-2 rounded-full ${dot}`} />
+          <h3 className={`text-xs font-semibold uppercase tracking-wider ${header}`}>{label}</h3>
+          <span className="text-xs text-gray-400 dark:text-gray-600 ml-auto">{count}</span>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function DraggableKanbanCard({ task, job, onToggle, onDelete, trackedMinutes }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: String(task.id),
+    data: { task },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      className={isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'}
+      {...attributes}
+      {...listeners}
+    >
+      <KanbanCard task={task} job={job} onToggle={onToggle} onDelete={onDelete} trackedMinutes={trackedMinutes} />
+    </div>
+  );
+}
+
+function KanbanView({ tasks, jobs, today, onToggleTask, onDeleteTask, onEditTask, trackedFor }) {
+  const [doneExpanded, setDoneExpanded] = useState(false);
+  const [activeTask, setActiveTask] = useState(null);
+  const [overId, setOverId] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } })
+  );
+
+  const pending    = tasks.filter((t) => !t.done);
+  const todo       = pending.filter((t) => !t.date || t.date > today).sort((a, b) => (a.date || 'zzz').localeCompare(b.date || 'zzz'));
+  const inProgress = pending.filter((t) => t.date && t.date <= today).sort((a, b) => a.date.localeCompare(b.date));
+  const allDone    = tasks.filter((t) => t.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
+  const doneVisible = doneExpanded ? allDone : allDone.slice(0, 5);
+
+  function getSourceCol(task) {
+    if (task.done) return 'done';
+    return (!task.date || task.date > today) ? 'todo' : 'inprogress';
+  }
+
+  function handleDragStart({ active }) {
+    setActiveTask(active.data.current.task);
+  }
+
+  function handleDragOver({ over }) {
+    setOverId(over?.id ?? null);
+  }
+
+  function handleDragEnd({ active, over }) {
+    setActiveTask(null);
+    setOverId(null);
+    if (!over) return;
+
+    const task = active.data.current.task;
+    const target = over.id;
+    if (getSourceCol(task) === target) return;
+
+    const tomorrow = getTomorrow();
+
+    if (target === 'done') {
+      if (!task.done) onToggleTask(task.id);
+    } else if (target === 'inprogress') {
+      if (task.done) onToggleTask(task.id);
+      onEditTask(task.id, { date: today });
+    } else if (target === 'todo') {
+      if (task.done) onToggleTask(task.id);
+      onEditTask(task.id, { date: tomorrow });
+    }
+  }
+
+  const colDefs = [
+    { id: 'todo',       label: 'To Do',      items: todo,       bg: 'bg-gray-50 dark:bg-gray-800/40',    dot: 'bg-gray-400 dark:bg-gray-500', header: 'text-gray-600 dark:text-gray-400' },
+    { id: 'inprogress', label: 'In Progress', items: inProgress, bg: 'bg-blue-50/50 dark:bg-blue-950/20', dot: 'bg-blue-500',                  header: 'text-blue-600 dark:text-blue-400' },
+  ];
+
+  return (
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+        {colDefs.map((col) => (
+          <DroppableColumn
+            key={col.id}
+            id={col.id}
+            bg={col.bg}
+            dot={col.dot}
+            header={col.header}
+            label={col.label}
+            count={col.items.length}
+            isOver={overId === col.id}
+          >
+            {col.items.length === 0
+              ? <p className="text-xs text-gray-300 dark:text-gray-700 italic text-center py-6">Empty</p>
+              : col.items.map((task) => (
+                  <DraggableKanbanCard
+                    key={task.id}
+                    task={task}
+                    job={getJob(jobs, task.jobId)}
+                    onToggle={onToggleTask}
+                    onDelete={onDeleteTask}
+                    trackedMinutes={trackedFor(task)}
+                  />
+                ))
+            }
+          </DroppableColumn>
+        ))}
+
+        {/* Done — droppable but collapsed by default */}
+        <DroppableColumn
+          id="done"
+          bg="bg-green-50/50 dark:bg-green-950/20"
+          dot="bg-green-500"
+          header="text-green-600 dark:text-green-400"
+          label="Done"
+          count={allDone.length}
+          isOver={overId === 'done'}
+          collapsible
+          expanded={doneExpanded}
+          onToggleExpand={() => setDoneExpanded((s) => !s)}
+        >
+          {doneExpanded && (
+            <div className="space-y-2">
+              {doneVisible.map((task) => (
+                <DraggableKanbanCard
+                  key={task.id}
+                  task={task}
+                  job={getJob(jobs, task.jobId)}
+                  onToggle={onToggleTask}
+                  onDelete={onDeleteTask}
+                  trackedMinutes={trackedFor(task)}
+                />
+              ))}
+              {allDone.length > 5 && !doneExpanded && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDoneExpanded(true); }}
+                  className="w-full text-xs text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 py-1 transition-colors"
+                >
+                  + {allDone.length - 5} more
+                </button>
+              )}
+            </div>
+          )}
+          {!doneExpanded && allDone.length === 0 && (
+            <p className="text-xs text-gray-300 dark:text-gray-700 italic text-center py-6">Empty</p>
+          )}
+        </DroppableColumn>
+      </div>
+
+      {/* Ghost card that follows the cursor while dragging */}
+      <DragOverlay dropAnimation={null}>
+        {activeTask && (
+          <div className="rotate-1 scale-105 opacity-90 shadow-xl">
+            <KanbanCard
+              task={activeTask}
+              job={getJob(jobs, activeTask.jobId)}
+              onToggle={() => {}}
+              onDelete={() => {}}
+              trackedMinutes={trackedFor(activeTask)}
+            />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
 // ─── Section (list view helper) ───────────────────────────────────────────────
 function Section({ title, count, accent = 'text-gray-700 dark:text-gray-300', children }) {
   return (
@@ -198,6 +442,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
   const [showTeamTasks, setShowTeamTasks] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+
   const isPM = org && ['org_admin', 'project_manager'].includes(org.role);
 
   const loadTeamTasks = useCallback(async () => {
@@ -218,6 +463,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
     const interval = setInterval(loadTeamTasks, 15000);
     return () => clearInterval(interval);
   }, [org?.id, isPM]);
+
 
   const today = getTodayString();
 
@@ -248,20 +494,20 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tasks</h1>
         {/* View toggle */}
         <div className="flex items-center p-1 rounded-xl bg-gray-100 dark:bg-gray-800 gap-0.5">
-          <button
-            onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${view === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-          >
-            <List size={13} />
-            List
-          </button>
-          <button
-            onClick={() => setView('agenda')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${view === 'agenda' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-          >
-            <CalendarDays size={13} />
-            Agenda
-          </button>
+          {[
+            { id: 'list',   icon: List,        label: 'List' },
+            { id: 'kanban', icon: LayoutGrid,   label: 'Board' },
+            { id: 'agenda', icon: CalendarDays, label: 'Agenda' },
+          ].map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${view === id ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            >
+              <Icon size={13} />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -292,6 +538,16 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
           onToggleMeeting={onToggleMeeting}
           gcalAttended={gcalAttended}
           onToggleGoogleEvent={onToggleGoogleEvent}
+          onDeleteTask={onDeleteTask}
+          onEditTask={onEditTask}
+          trackedFor={trackedFor}
+        />
+      ) : view === 'kanban' ? (
+        <KanbanView
+          tasks={tasks}
+          jobs={jobs}
+          today={today}
+          onToggleTask={onToggleTask}
           onDeleteTask={onDeleteTask}
           onEditTask={onEditTask}
           trackedFor={trackedFor}

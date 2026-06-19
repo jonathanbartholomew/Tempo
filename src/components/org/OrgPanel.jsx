@@ -5,29 +5,20 @@ import {
 } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 
-const ROLE_LABELS = {
-  org_admin: 'Admin',
-  project_manager: 'Project Manager',
-  team_lead: 'Team Lead',
-  member: 'Member',
-};
-
-const ROLE_COLORS = {
-  org_admin: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  project_manager: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-  team_lead: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-  member: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-};
-
 const TEAM_COLORS = [
   '#6366f1', '#3b82f6', '#10b981', '#f59e0b',
   '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
 ];
 
-function RoleBadge({ role }) {
+function RoleBadge({ role, orgRoles = [] }) {
+  const def = orgRoles.find((r) => r.name === role);
+  const color = def?.color || '#6b7280';
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[role] || ROLE_COLORS.member}`}>
-      {ROLE_LABELS[role] || role}
+    <span
+      className="px-2 py-0.5 rounded-full text-xs font-medium"
+      style={{ backgroundColor: color + '22', color }}
+    >
+      {role}
     </span>
   );
 }
@@ -50,14 +41,14 @@ function CopyButton({ text }) {
   );
 }
 
-export default function OrgPanel({ auth, org, orgActions }) {
-  const isAdmin = org?.role === 'org_admin';
-  const canManageTeams = ['org_admin', 'project_manager', 'team_lead'].includes(org?.role);
-  const canSeeTeams = org?.role !== 'member';
+export default function OrgPanel({ auth, plan = 'trial', org, orgActions, onUpgrade }) {
+  const isAdmin = !!org?.is_admin;
+  const canManageTeams = !!org?.is_admin;
 
   // Detailed data (members, teams, invites) fetched separately
   const [details, setDetails] = useState(null);
   const [teams, setTeams] = useState([]);
+  const [orgRoles, setOrgRoles] = useState([]);
   const [invites, setInvites] = useState([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
@@ -92,12 +83,14 @@ export default function OrgPanel({ auth, org, orgActions }) {
     if (!org?.id) return;
     setDetailsLoading(true);
     try {
-      const [det, tms] = await Promise.all([
+      const [det, tms, rls] = await Promise.all([
         orgActions.getOrgDetails(org.id),
         orgActions.getTeams(org.id),
+        orgActions.getOrgRoles(org.id),
       ]);
       setDetails(det);
       setTeams(tms);
+      setOrgRoles(rls);
       if (isAdmin) {
         const inv = await orgActions.getInvites(org.id);
         setInvites(inv.filter((i) => !i.accepted_at));
@@ -213,12 +206,14 @@ export default function OrgPanel({ auth, org, orgActions }) {
 
   // ── No org ────────────────────────────────────────────────────────────────
 
+  const canCreateOrg = plan === 'team' || plan === 'enterprise';
+
   if (!org) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Organization</h2>
-          {!showCreateForm && (
+          {!showCreateForm && canCreateOrg && (
             <button
               onClick={() => setShowCreateForm(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
@@ -228,7 +223,20 @@ export default function OrgPanel({ auth, org, orgActions }) {
           )}
         </div>
 
-        {!showCreateForm ? (
+        {!canCreateOrg ? (
+          <div className="rounded-xl border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/30 p-4 space-y-2">
+            <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">Team plan required</p>
+            <p className="text-xs text-purple-600 dark:text-purple-400">
+              Creating an organization, inviting members, and accessing team features requires a Team or Enterprise plan.
+            </p>
+            <button
+              onClick={onUpgrade}
+              className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition-colors"
+            >
+              Upgrade to Team
+            </button>
+          </div>
+        ) : !showCreateForm ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 italic">
             You're not part of an organization yet. Create one to invite your team and set up corporate achievements.
           </p>
@@ -272,10 +280,11 @@ export default function OrgPanel({ auth, org, orgActions }) {
   const members = details?.members || [];
   const myUserId = members.find((m) => m.email === auth?.user?.email)?.user_id;
 
-  // Filter teams by role — members see none, PMs see only their own teams
-  const visibleTeams = ['org_admin', 'team_lead'].includes(org?.role)
+  // Admins see all teams; others see only teams they belong to
+  const visibleTeams = isAdmin
     ? teams
     : teams.filter((t) => (t.members || []).some((tm) => tm.user_id === myUserId));
+  const canSeeTeams = isAdmin || visibleTeams.length > 0;
 
   return (
     <div className="space-y-5">
@@ -291,7 +300,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <RoleBadge role={org.role} />
+          <RoleBadge orgRoles={orgRoles} role={org.role} />
           <button onClick={loadDetails} title="Refresh" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             <RefreshCw size={14} className={detailsLoading ? 'animate-spin' : ''} />
           </button>
@@ -336,9 +345,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
                 onChange={(e) => setInviteRole(e.target.value)}
                 className="px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="member">Member</option>
-                <option value="team_lead">Team Lead</option>
-                <option value="project_manager">Project Manager</option>
+                {orgRoles.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
               </select>
             </div>
             {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
@@ -381,10 +388,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
                       onChange={(e) => handleChangeRole(m.user_id, e.target.value)}
                       className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="member">Member</option>
-                      <option value="team_lead">Team Lead</option>
-                      <option value="project_manager">Project Manager</option>
-                      <option value="org_admin">Admin</option>
+                      {orgRoles.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
                     </select>
                     <button
                       onClick={() => handleRemoveMember(m.user_id)}
@@ -395,7 +399,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
                     </button>
                   </div>
                 ) : (
-                  <RoleBadge role={m.role} />
+                  <RoleBadge orgRoles={orgRoles} role={m.role} />
                 )}
               </div>
             ))}
@@ -414,7 +418,7 @@ export default function OrgPanel({ auth, org, orgActions }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{inv.email}</p>
                 </div>
-                <RoleBadge role={inv.role} />
+                <RoleBadge orgRoles={orgRoles} role={inv.role} />
                 <span className="text-xs text-amber-500 dark:text-amber-400">Pending</span>
               </div>
             ))}

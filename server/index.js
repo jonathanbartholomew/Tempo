@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import 'dotenv/config';
 import { requireAuth } from './middleware/auth.js';
 import dataRoutes from './routes/data.js';
@@ -9,11 +10,42 @@ import timeTrackingRoutes from './routes/timeTracking.js';
 import orgRoutes from './routes/org.js';
 import authRoutes from './routes/auth.js';
 import assignedTasksRoutes from './routes/assignedTasks.js';
+import billingRoutes from './routes/billing.js';
 import { pool } from './db.js';
 
+// S3: Fail fast if required secrets are missing — prevents JWT from silently
+// signing/verifying against the literal string "undefined".
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
+if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY environment variable is required');
+
 const app = express();
-app.use(cors());
+
+// S1: Restrict CORS to the known frontend origin.
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5180';
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '10mb' }));
+
+// S2: Rate limiting.
+// Strict limit for auth endpoints — 10 attempts per 15 min per IP.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
+// General API limit — 200 requests per minute per IP.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please slow down.' },
+});
 
 // Ensure time_entries table exists
 pool.query(`
@@ -38,6 +70,10 @@ pool.query(`
 pool.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(60) NULL`).catch(() => {});
 pool.query(`ALTER TABLE organizations MODIFY COLUMN logo_url MEDIUMTEXT NULL`).catch(() => {});
 pool.query(`ALTER TABLE users ADD COLUMN auth_provider ENUM('google','email') NOT NULL DEFAULT 'google'`).catch(() => {});
+pool.query(`ALTER TABLE users ADD COLUMN trial_ends_at DATETIME NULL`).catch(() => {});
+pool.query(`ALTER TABLE org_members ADD COLUMN org_xp INT NOT NULL DEFAULT 0`).catch(() => {});
+pool.query(`ALTER TABLE organizations ADD COLUMN allow_personal_accounts TINYINT(1) NOT NULL DEFAULT 1`).catch(() => {});
+pool.query(`ALTER TABLE organizations ADD COLUMN allow_multi_org_members TINYINT(1) NOT NULL DEFAULT 1`).catch(() => {});
 pool.query(`ALTER TABLE time_entries ADD COLUMN job_id VARCHAR(36) NULL AFTER category`).catch(() => {});
 pool.query(`ALTER TABLE time_entries ADD COLUMN task_title VARCHAR(500) NULL AFTER job_id`).catch(() => {});
 pool.query(`ALTER TABLE time_entries MODIFY COLUMN description VARCHAR(500) NOT NULL DEFAULT ''`).catch(() => {});
@@ -162,6 +198,49 @@ pool.query(`
 `).catch((err) => console.error('Failed to create team_goals table:', err));
 
 pool.query(`
+  CREATE TABLE IF NOT EXISTS team_goal_contributions (
+    goal_id INT NOT NULL,
+    user_id INT NOT NULL,
+    value INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (goal_id, user_id)
+  )
+`).catch((err) => console.error('Failed to create team_goal_contributions table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_celebrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    org_id INT NOT NULL,
+    user_id INT NULL,
+    team_id INT NULL,
+    event_type ENUM('achievement_unlocked','goal_completed','streak_milestone','level_up') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(500) NOT NULL DEFAULT '',
+    icon VARCHAR(50) NOT NULL DEFAULT '🎉',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_org_time (org_id, created_at)
+  )
+`).catch((err) => console.error('Failed to create org_celebrations table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_roles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    org_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    color VARCHAR(20) NOT NULL DEFAULT '#6b7280',
+    is_admin TINYINT(1) NOT NULL DEFAULT 0,
+    permissions JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_role (org_id, name),
+    INDEX idx_org (org_id)
+  )
+`).catch((err) => console.error('Failed to create org_roles table:', err));
+
+// Widen role columns to VARCHAR so custom role names can be stored
+pool.query(`ALTER TABLE org_members MODIFY COLUMN role VARCHAR(100) NOT NULL DEFAULT 'member'`).catch(() => {});
+pool.query(`ALTER TABLE org_invites MODIFY COLUMN role VARCHAR(100) NOT NULL DEFAULT 'member'`).catch(() => {});
+
+pool.query(`
   CREATE TABLE IF NOT EXISTS assigned_tasks (
     id VARCHAR(36) PRIMARY KEY,
     org_id INT NOT NULL,
@@ -183,8 +262,8 @@ pool.query(`
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-app.use('/api/auth', authRoutes);
-app.use('/api/jira', jiraRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/jira', apiLimiter, jiraRoutes);
 
 // Public invite lookup — no auth required (must be before the protected /api/org mount)
 app.get('/api/org/invite/:token', async (req, res) => {
@@ -202,11 +281,12 @@ app.get('/api/org/invite/:token', async (req, res) => {
   res.json(invite);
 });
 
-app.use('/api/time-entries', requireAuth, timeTrackingRoutes);
-app.use('/api/assigned-tasks', requireAuth, assignedTasksRoutes);
-app.use('/api/org', requireAuth, orgRoutes);
-app.use('/api', requireAuth, dataRoutes);
-app.use('/api/ai-plan', requireAuth, aiPlanRoutes);
+app.use('/api/billing', apiLimiter, requireAuth, billingRoutes);
+app.use('/api/time-entries', apiLimiter, requireAuth, timeTrackingRoutes);
+app.use('/api/assigned-tasks', apiLimiter, requireAuth, assignedTasksRoutes);
+app.use('/api/org', apiLimiter, requireAuth, orgRoutes);
+app.use('/api', apiLimiter, requireAuth, dataRoutes);
+app.use('/api/ai-plan', apiLimiter, requireAuth, aiPlanRoutes);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL UNIQUE,
   name VARCHAR(255),
   picture VARCHAR(512),
+  subscription_plan ENUM('free','personal_pro','team','enterprise') NOT NULL DEFAULT 'free',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -4,6 +4,14 @@ import { pool } from '../db.js';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const tokenCache = new Map(); // accessToken -> { userId, expiresAt }
 
+// Prune expired entries every 10 minutes to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of tokenCache) {
+    if (val.expiresAt <= now) tokenCache.delete(key);
+  }
+}, 10 * 60 * 1000).unref();
+
 async function findOrCreateUser({ email, name, picture }) {
   const [rows] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
   if (rows.length) return rows[0].id;

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 const JWT_EXPIRES_IN = '30d';
@@ -9,6 +10,16 @@ const JWT_EXPIRES_IN = '30d';
 function signToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
+
+// GET /api/auth/me — returns current user including subscription_plan + trial_ends_at
+router.get('/me', requireAuth, async (req, res) => {
+  const [[user]] = await pool.query(
+    'SELECT id, name, email, picture, subscription_plan, trial_ends_at FROM users WHERE id = ?',
+    [req.userId]
+  );
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(user);
+});
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -30,9 +41,11 @@ router.post('/register', async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
   const [result] = await pool.query(
-    "INSERT INTO users (email, name, picture, password_hash, auth_provider) VALUES (?, ?, NULL, ?, 'email')",
-    [normalizedEmail, name.trim(), passwordHash]
+    "INSERT INTO users (email, name, picture, password_hash, auth_provider, subscription_plan, trial_ends_at) VALUES (?, ?, NULL, ?, 'email', 'trial', ?)",
+    [normalizedEmail, name.trim(), passwordHash, trialEndsAt]
   );
 
   const token = signToken(result.insertId);
@@ -41,7 +54,7 @@ router.post('/register', async (req, res) => {
   res.status(201).json({
     token,
     expiresAt,
-    user: { name: name.trim(), email: normalizedEmail, picture: null },
+    user: { name: name.trim(), email: normalizedEmail, picture: null, subscription_plan: 'trial', trial_ends_at: trialEndsAt },
   });
 });
 
@@ -55,7 +68,7 @@ router.post('/login', async (req, res) => {
   const normalizedEmail = email.trim().toLowerCase();
 
   const [rows] = await pool.query(
-    'SELECT id, name, email, picture, password_hash, auth_provider FROM users WHERE email = ?',
+    'SELECT id, name, email, picture, password_hash, auth_provider, subscription_plan, trial_ends_at FROM users WHERE email = ?',
     [normalizedEmail]
   );
 
@@ -80,7 +93,7 @@ router.post('/login', async (req, res) => {
   res.json({
     token,
     expiresAt,
-    user: { name: user.name, email: user.email, picture: user.picture },
+    user: { name: user.name, email: user.email, picture: user.picture, subscription_plan: user.subscription_plan, trial_ends_at: user.trial_ends_at },
   });
 });
 

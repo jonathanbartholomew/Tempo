@@ -1,5 +1,5 @@
 import { useGoogleLogin } from '@react-oauth/google';
-import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle, CheckCircle2, Link2 } from 'lucide-react';
+import { Sun, Moon, LogOut, Plus, X, Eye, AlertTriangle, CheckCircle2, Link2, Sparkles, Building2, Zap } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import JobsTab from '../jobs/JobsTab';
 import MeetingsTab from '../meetings/MeetingsTab';
@@ -63,9 +63,11 @@ export default function SettingsTab({
   onUpdateProfile,
   jira,
   auth,
+  plan = 'trial',
   org,
   orgActions,
   onNavigate,
+  onUpgrade,
 }) {
   const connectCalendar = useGoogleLogin({
     scope: `openid email profile ${CALENDAR_SCOPE}`,
@@ -110,6 +112,45 @@ export default function SettingsTab({
           </div>
         )}
       </div>
+
+      {/* Plan */}
+      {(() => {
+        const plans = {
+          trial:        { label: 'Free Trial',    color: 'text-gray-600 dark:text-gray-400',   bg: 'bg-gray-50 dark:bg-gray-800/50',       features: ['Personal tasks & calendar', 'AI Day Planner (daily)', 'Time tracking & focus timer', 'Personal goals & achievements'] },
+          personal_pro: { label: 'Personal Pro',  color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/50',       features: ['Everything in trial', 'Weekly AI planning', 'Unlimited tasks & goals', 'Priority support'] },
+          team:         { label: 'Team',          color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/50', features: ['Everything in Personal Pro', 'Create & manage an organization', 'Team goals & company achievements', 'Task assignment & PM tools', 'Up to 25 members'] },
+          enterprise:   { label: 'Enterprise',    color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/50',     features: ['Everything in Team', 'Unlimited members', 'Custom roles & permissions', 'Dedicated support', 'SLA guarantee'] },
+        };
+        const current = plans[plan] ?? plans.trial;
+        const canUpgrade = plan === 'trial' || plan === 'personal_pro';
+        return (
+          <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 ${current.bg} p-4 space-y-3`}>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Plan</h2>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 dark:bg-gray-900/60 ${current.color}`}>
+                {current.label}
+              </span>
+            </div>
+            <ul className="space-y-1">
+              {current.features.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <CheckCircle2 size={13} className="text-green-500 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {canUpgrade && (
+              <button
+                onClick={onUpgrade}
+                className="mt-1 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+              >
+                <Zap size={14} />
+                {plan === 'trial' ? 'Choose a plan' : 'Upgrade plan'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Appearance */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
@@ -265,7 +306,7 @@ export default function SettingsTab({
             </button>
           </div>
         ) : (
-          <OrgPanel auth={auth} org={org} orgActions={orgActions} />
+          <OrgPanel auth={auth} plan={plan} org={org} orgActions={orgActions} onUpgrade={onUpgrade} />
         )}
       </div>
 

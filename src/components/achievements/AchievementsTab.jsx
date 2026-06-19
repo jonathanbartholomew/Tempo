@@ -2,7 +2,37 @@ import { useState, useEffect } from 'react';
 import AchievementBadge, { TieredAchievementBadge } from './AchievementBadge';
 import { ACHIEVEMENTS, TIERED_ACHIEVEMENTS } from '../../data/achievements';
 import { getLevelInfo } from '../../utils/helpers';
-import { CheckCircle2, Flame, Trophy, Briefcase, Building2, Lock } from 'lucide-react';
+import { CheckCircle2, Flame, Trophy, Briefcase, Building2, Lock, Zap } from 'lucide-react';
+import Skeleton from '../ui/Skeleton';
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function CelebrationCard({ event }) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg flex-shrink-0">
+        {event.icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{event.title}</p>
+        {event.description && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{event.description}</p>}
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {event.user_name && <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{event.user_name}</span>}
+          {event.team_name && <span className="text-xs text-indigo-500 dark:text-indigo-400">{event.team_name}</span>}
+          <span className="text-xs text-gray-400 dark:text-gray-600">{timeAgo(event.created_at)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const CRITERIA_LABELS = {
   level: 'Reach level',
@@ -73,10 +103,16 @@ export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, e
   const level = getLevelInfo(stats.totalXp);
   const context = { stats, jobs, meetings, gcalAttended };
   const [orgAchievements, setOrgAchievements] = useState([]);
+  const [orgAchievementsLoading, setOrgAchievementsLoading] = useState(false);
+  const [celebrations, setCelebrations] = useState([]);
 
   useEffect(() => {
     if (!org?.id) return;
-    orgActions.getOrgAchievements(org.id).then(setOrgAchievements).catch(() => {});
+    setOrgAchievementsLoading(true);
+    Promise.all([
+      orgActions.getOrgAchievements(org.id).then(setOrgAchievements).catch(() => {}),
+      orgActions.getOrgCelebrations(org.id).then(setCelebrations).catch(() => {}),
+    ]).finally(() => setOrgAchievementsLoading(false));
   }, [org?.id]);
 
   return (
@@ -118,21 +154,51 @@ export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, e
       </div>
 
       {/* Company achievements */}
-      {orgAchievements.length > 0 && (
+      {org && (orgAchievementsLoading || orgAchievements.length > 0) && (
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Building2 size={16} className="text-indigo-500" />
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-              {org.name} Achievements
-            </h2>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
-              {orgAchievements.filter((a) => a.unlocked_at).length} / {orgAchievements.length} unlocked
-            </span>
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Building2 size={16} className="text-indigo-500" />
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                {org.name} Achievements
+              </h2>
+              {!orgAchievementsLoading && (
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {orgAchievements.filter((a) => a.unlocked_at).length} / {orgAchievements.length} unlocked
+                </span>
+              )}
+            </div>
+            {org.org_xp != null && (() => {
+              const orgLevel = getLevelInfo(org.org_xp);
+              return (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
+                  <Trophy size={12} className="text-indigo-500" />
+                  <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">Org Level {orgLevel.level}</span>
+                  <span className="text-xs text-indigo-400 dark:text-indigo-500">·</span>
+                  <span className="text-xs text-indigo-500 dark:text-indigo-400">{org.org_xp} XP</span>
+                </div>
+              );
+            })()}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {orgAchievements.map((a) => (
-              <CompanyAchievementBadge key={a.id} achievement={a} />
-            ))}
+            {orgAchievementsLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-4 flex items-start gap-3">
+                    <Skeleton className="w-11 h-11 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-2 pt-0.5">
+                      <Skeleton className={`h-3.5 ${i % 3 === 0 ? 'w-28' : i % 3 === 1 ? 'w-36' : 'w-24'}`} />
+                      <Skeleton className={`h-3 ${i % 2 === 0 ? 'w-full' : 'w-4/5'}`} />
+                      <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mt-2">
+                        <Skeleton className="h-full w-2/5 rounded-full" />
+                      </div>
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                ))
+              : orgAchievements.map((a) => (
+                  <CompanyAchievementBadge key={a.id} achievement={a} />
+                ))
+            }
           </div>
         </div>
       )}
@@ -156,6 +222,23 @@ export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, e
           ))}
         </div>
       </div>
+
+      {/* Celebration feed */}
+      {celebrations.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Zap size={16} className="text-amber-400" />
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              {org?.name ? `${org.name} Feed` : 'Company Feed'}
+            </h2>
+          </div>
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+            {celebrations.map((c) => (
+              <CelebrationCard key={c.id} event={c} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
