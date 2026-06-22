@@ -232,6 +232,62 @@ export function useOrg(auth) {
       return data;
     }
 
+    async function getOrgPosts(orgId, { limit = 20, offset = 0 } = {}) {
+      const res = await fetch(`/api/org/${orgId}/posts?limit=${limit}&offset=${offset}`, { headers: h(false) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function createOrgPost(orgId, content) {
+      const res = await fetch(`/api/org/${orgId}/posts`, { method: 'POST', headers: h(), body: JSON.stringify({ content }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function togglePostReaction(orgId, postId, emoji) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/reactions`, { method: 'POST', headers: h(), body: JSON.stringify({ emoji }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function updateOrgPost(orgId, postId, content) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}`, { method: 'PATCH', headers: h(), body: JSON.stringify({ content }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+    }
+
+    async function deleteOrgPost(orgId, postId) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}`, { method: 'DELETE', headers: h(false) });
+      if (!res.ok) throw new Error((await res.json()).error);
+    }
+
+    async function getPostReplies(orgId, postId) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/replies`, { headers: h(false) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function createPostReply(orgId, postId, content) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/replies`, { method: 'POST', headers: h(), body: JSON.stringify({ content }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function toggleReplyReaction(orgId, postId, replyId, emoji) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/replies/${replyId}/reactions`, { method: 'POST', headers: h(), body: JSON.stringify({ emoji }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    }
+
+    async function updatePostReply(orgId, postId, replyId, content) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/replies/${replyId}`, { method: 'PATCH', headers: h(), body: JSON.stringify({ content }) });
+      if (!res.ok) throw new Error((await res.json()).error);
+    }
+
+    async function deletePostReply(orgId, postId, replyId) {
+      const res = await fetch(`/api/org/${orgId}/posts/${postId}/replies/${replyId}`, { method: 'DELETE', headers: h(false) });
+      if (!res.ok) throw new Error((await res.json()).error);
+    }
+
     return {
       updateOrg, updateOrgSettings, createOrg, getOrgDetails,
       inviteMember, getInvites, changeMemberRole, removeMember, acceptInvite,
@@ -242,6 +298,8 @@ export function useOrg(auth) {
       getOrgCelebrations, createCelebration,
       getOrgAchievements, createOrgAchievement, updateOrgAchievement, deleteOrgAchievement, syncOrgAchievements,
       getOrgRoles, createOrgRole, updateOrgRole, deleteOrgRole,
+      getOrgPosts, createOrgPost, updateOrgPost, deleteOrgPost, togglePostReaction,
+      getPostReplies, createPostReply, updatePostReply, deletePostReply, toggleReplyReaction,
     };
   }, [token, fetchOrg]);
 

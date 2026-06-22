@@ -18,6 +18,7 @@ import GlobalTimerBar from './components/layout/GlobalTimerBar';
 import UnderConstruction from './components/layout/UnderConstruction';
 import AdminTab from './components/org/AdminTab';
 import GoalsTab from './components/goals/GoalsTab';
+import CommunityTab from './components/community/CommunityTab';
 import heroBgImg from './assets/hero-background.jpg';
 import { useAchievements } from './hooks/useAchievements';
 import { useNotifications } from './hooks/useNotifications';
@@ -45,6 +46,7 @@ import {
   toDateKey,
   getPriority,
   getLevelInfo,
+  getLastWorkDay,
 } from './utils/helpers';
 
 export default function App() {
@@ -276,7 +278,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   const dataLoading = useDataLoading();
   const { getNewlyUnlocked } = useAchievements();
   const prevLevelRef = useRef(null);
-  const celebratedStreaksRef = useRef(new Set());
+
   const orgSyncTimerRef = useRef(null);
 
   useNotifications(meetings);
@@ -377,9 +379,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       const today = getTodayString();
       let { streak, lastActiveDate, longestStreak } = prev;
       if (lastActiveDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+        const lastWorkDay = getLastWorkDay(new Date(), prev.workDays ?? [1, 2, 3, 4, 5]);
+        streak = lastActiveDate === toDateKey(lastWorkDay) ? streak + 1 : 1;
         lastActiveDate = today;
         longestStreak = Math.max(longestStreak, streak);
       }
@@ -533,9 +534,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       const today = getTodayString();
       let { streak, lastActiveDate, longestStreak } = prev;
       if (lastActiveDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+        const lastWorkDay = getLastWorkDay(new Date(), prev.workDays ?? [1, 2, 3, 4, 5]);
+        streak = lastActiveDate === toDateKey(lastWorkDay) ? streak + 1 : 1;
         lastActiveDate = today;
         longestStreak = Math.max(longestStreak, streak);
       }
@@ -581,9 +581,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       const today = getTodayString();
       let { streak, lastActiveDate, longestStreak } = prev;
       if (lastActiveDate !== today) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        streak = lastActiveDate === toDateKey(yesterday) ? streak + 1 : 1;
+        const lastWorkDay = getLastWorkDay(new Date(), prev.workDays ?? [1, 2, 3, 4, 5]);
+        streak = lastActiveDate === toDateKey(lastWorkDay) ? streak + 1 : 1;
         lastActiveDate = today;
         longestStreak = Math.max(longestStreak, streak);
       }
@@ -676,9 +675,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
   useEffect(() => {
     if (!org.org?.id || dataLoading) return;
     const MILESTONES = [7, 14, 30, 60, 100];
-    const hit = MILESTONES.find((m) => stats.streak === m && !celebratedStreaksRef.current.has(m));
+    const celebrated = stats.celebratedStreaks ?? [];
+    const hit = MILESTONES.find((m) => stats.streak === m && !celebrated.includes(m));
     if (!hit) return;
-    celebratedStreaksRef.current.add(hit);
+    setStats((prev) => ({ ...prev, celebratedStreaks: [...(prev.celebratedStreaks ?? []), hit] }));
     org.createCelebration(org.org.id, {
       event_type: 'streak_milestone',
       title: `${hit}-day streak!`,
@@ -878,7 +878,7 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
       )}
 
       {activeTab === 'achievements' && (
-        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} org={org.org} orgActions={org} />
+        <AchievementsTab stats={stats} jobs={jobs} meetings={meetings} gcalAttended={gcalAttended} earned={earned} org={org.org} orgActions={org} onNavigate={setActiveTab} />
       )}
 
       {activeTab === 'goals' && (
@@ -900,6 +900,10 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
 
       {activeTab === 'time' && (
         <TimeTab timeTracking={timeTracking} tasks={allTasks} meetings={meetings} googleEvents={visibleGoogleEvents} stats={stats} jobs={jobs} onLogFocus={logFocusSession} timeFormat={timeFormat} />
+      )}
+
+      {activeTab === 'community' && (
+        <CommunityTab org={org.org} orgActions={org} auth={auth} />
       )}
 
       {activeTab === 'admin' && (
@@ -935,6 +939,8 @@ function AppContent({ theme, toggleTheme, auth, login, logout, isCalendarConnect
           onSetTimezone={setTimezone}
           timeFormat={timeFormat}
           onSetTimeFormat={setTimeFormat}
+          stats={stats}
+          onUpdateStats={(patch) => setStats((prev) => ({ ...prev, ...patch }))}
           profile={profile}
           onUpdateProfile={setProfile}
           jira={jira}

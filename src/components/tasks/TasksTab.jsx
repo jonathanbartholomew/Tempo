@@ -443,7 +443,7 @@ export default function TasksTab({ tasks, jobs, meetings, googleEvents, onAddTas
   const [refreshing, setRefreshing] = useState(false);
 
 
-  const isPM = org && ['org_admin', 'project_manager'].includes(org.role);
+  const isPM = org && (org.is_admin || ['org_admin', 'project_manager'].includes(org.role));
 
   const loadTeamTasks = useCallback(async () => {
     if (!isPM || !org?.id) return;

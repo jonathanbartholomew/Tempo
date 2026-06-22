@@ -99,7 +99,7 @@ function CompanyAchievementBadge({ achievement }) {
   );
 }
 
-export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, earned, org, orgActions }) {
+export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, earned, org, orgActions, onNavigate }) {
   const level = getLevelInfo(stats.totalXp);
   const context = { stats, jobs, meetings, gcalAttended };
   const [orgAchievements, setOrgAchievements] = useState([]);
@@ -147,7 +147,12 @@ export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, e
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
           <Stat label="Tasks Done"     value={stats.tasksCompleted} icon={CheckCircle2} iconColor="text-green-500" />
-          <Stat label="Day Streak"     value={stats.streak}         icon={Flame}        iconColor="text-orange-400" />
+          <Stat
+            label={(stats.workDays && stats.workDays.length < 7) ? 'Work Day Streak' : 'Day Streak'}
+            value={stats.streak}
+            icon={Flame}
+            iconColor="text-orange-400"
+          />
           <Stat label="Longest Streak" value={stats.longestStreak}  icon={Trophy}       iconColor="text-amber-400" />
           <Stat label="Jobs Tracked"   value={jobs.length}          icon={Briefcase}    iconColor="text-blue-400" />
         </div>
@@ -223,20 +228,10 @@ export default function AchievementsTab({ stats, jobs, meetings, gcalAttended, e
         </div>
       </div>
 
-      {/* Celebration feed */}
-      {celebrations.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Zap size={16} className="text-amber-400" />
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-              {org?.name ? `${org.name} Feed` : 'Company Feed'}
-            </h2>
-          </div>
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-            {celebrations.map((c) => (
-              <CelebrationCard key={c.id} event={c} />
-            ))}
-          </div>
+      {org && (
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 px-4 py-3 flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+          <Zap size={14} className="text-amber-400 flex-shrink-0" />
+          Activity from your org now lives in the <button onClick={() => onNavigate?.('community')} className="text-blue-500 hover:underline font-medium">Community</button> tab.
         </div>
       )}
     </div>

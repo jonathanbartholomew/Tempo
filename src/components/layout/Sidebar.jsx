@@ -17,6 +17,7 @@ import {
   Target,
   ChevronsLeft,
   ChevronsRight,
+  MessageSquare,
 } from "lucide-react";
 import logoLight from "../../assets/tempo-logo-trans-right.png";
 import logoDark from "../../assets/tempo-logo-dark-mode-right.png";
@@ -155,6 +156,7 @@ export default function Sidebar({
           </p>
         )}
         <div className="space-y-0.5">
+          {org && renderNavItem({ id: 'community', label: 'Community', icon: MessageSquare })}
           {org?.is_admin && renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck })}
           {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings })}
         </div>
@@ -180,6 +182,7 @@ export default function Sidebar({
           Workspace
         </p>
         <div className="space-y-0.5">
+          {org && renderNavItem({ id: 'community', label: 'Community', icon: MessageSquare }, true)}
           {org?.is_admin && renderNavItem({ id: 'admin', label: 'Admin', icon: ShieldCheck }, true)}
           {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings }, true)}
         </div>
@@ -204,7 +207,7 @@ export default function Sidebar({
   );
 
   const userFooter = (isCollapsed) => {
-    const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.free;
+    const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.trial;
     return user && (
       <div className={`py-3 border-t border-gray-100 dark:border-gray-800 flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-3 px-3'}`}>
         <div className="relative flex-shrink-0">

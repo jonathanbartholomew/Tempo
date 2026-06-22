@@ -6,6 +6,8 @@ import MeetingsTab from '../meetings/MeetingsTab';
 import OrgPanel from '../org/OrgPanel';
 import { CALENDAR_ACCOUNT_COLORS, TIMEZONES, TIME_FORMATS } from '../../utils/helpers';
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
 const PROFILE_STEPS = [
@@ -59,6 +61,8 @@ export default function SettingsTab({
   onSetTimezone,
   timeFormat,
   onSetTimeFormat,
+  stats,
+  onUpdateStats,
   profile,
   onUpdateProfile,
   jira,
@@ -202,6 +206,41 @@ export default function SettingsTab({
           </select>
         </div>
       </div>
+
+      {/* Work Days */}
+      {stats && onUpdateStats && (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Work Days</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Your streak won't break on days you're not scheduled to work.</p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {DAY_LABELS.map((label, i) => {
+              const active = (stats.workDays ?? [1, 2, 3, 4, 5]).includes(i);
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    const current = stats.workDays ?? [1, 2, 3, 4, 5];
+                    const next = active ? current.filter((d) => d !== i) : [...current, i].sort();
+                    onUpdateStats({ workDays: next });
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                    active
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {(stats.workDays ?? [1, 2, 3, 4, 5]).length === 0 && (
+            <p className="text-xs text-amber-500">No work days selected — streak will require activity every day.</p>
+          )}
+        </div>
+      )}
 
       {/* Connected Calendars */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-2">

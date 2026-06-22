@@ -959,4 +959,250 @@ router.delete('/:orgId/assigned-tasks/:taskId', async (req, res) => {
   res.status(204).end();
 });
 
+// ── Community — Posts & Feed ──────────────────────────────────────────────────
+
+// GET /api/org/:orgId/posts — paginated message board posts with reply counts
+router.get('/:orgId/posts', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+  const offset = parseInt(req.query.offset) || 0;
+
+  const [posts] = await pool.query(
+    `SELECT p.id, p.content, p.created_at, p.updated_at,
+            u.id AS user_id, u.name, u.picture,
+            (SELECT COUNT(*) FROM org_post_replies r WHERE r.post_id = p.id) AS reply_count
+     FROM org_posts p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.org_id = ?
+     ORDER BY p.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [orgId, limit, offset]
+  );
+
+  // Attach reaction counts + whether current user reacted
+  if (posts.length > 0) {
+    const postIds = posts.map((p) => p.id);
+    const [reactions] = await pool.query(
+      `SELECT post_id, emoji, COUNT(*) AS count,
+              MAX(IF(user_id = ?, 1, 0)) AS reacted
+       FROM org_post_reactions
+       WHERE post_id IN (?)
+       GROUP BY post_id, emoji`,
+      [req.userId, postIds]
+    );
+    const byPost = {};
+    reactions.forEach((r) => {
+      if (!byPost[r.post_id]) byPost[r.post_id] = [];
+      byPost[r.post_id].push({ emoji: r.emoji, count: Number(r.count), reacted: !!r.reacted });
+    });
+    posts.forEach((p) => { p.reactions = byPost[p.id] || []; });
+  }
+
+  res.json(posts);
+});
+
+// POST /api/org/:orgId/posts — create a post
+router.post('/:orgId/posts', async (req, res) => {
+  const { orgId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+
+  const [result] = await pool.query(
+    'INSERT INTO org_posts (org_id, user_id, content) VALUES (?, ?, ?)',
+    [orgId, req.userId, content.trim()]
+  );
+  const [[post]] = await pool.query(
+    `SELECT p.id, p.content, p.created_at, u.id AS user_id, u.name, u.picture, 0 AS reply_count
+     FROM org_posts p JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
+    [result.insertId]
+  );
+  res.status(201).json(post);
+});
+
+// PATCH /api/org/:orgId/posts/:postId — author only
+router.patch('/:orgId/posts/:postId', async (req, res) => {
+  const { orgId, postId } = req.params;
+  const [[post]] = await pool.query('SELECT user_id FROM org_posts WHERE id = ? AND org_id = ?', [postId, orgId]);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+  if (post.user_id !== req.userId) return res.status(403).json({ error: 'Not authorized' });
+
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+
+  await pool.query('UPDATE org_posts SET content = ? WHERE id = ?', [content.trim(), postId]);
+  res.json({ success: true });
+});
+
+// DELETE /api/org/:orgId/posts/:postId — author or admin can delete
+router.delete('/:orgId/posts/:postId', async (req, res) => {
+  const { orgId, postId } = req.params;
+  const [[post]] = await pool.query('SELECT user_id FROM org_posts WHERE id = ? AND org_id = ?', [postId, orgId]);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const [[orgRole]] = await pool.query('SELECT is_admin FROM org_roles WHERE org_id = ? AND name = ?', [orgId, role]);
+  const isAdmin = role === 'org_admin' || !!orgRole?.is_admin;
+  if (post.user_id !== req.userId && !isAdmin) return res.status(403).json({ error: 'Not authorized' });
+
+  await pool.query('DELETE FROM org_post_replies WHERE post_id = ?', [postId]);
+  await pool.query('DELETE FROM org_posts WHERE id = ?', [postId]);
+  res.status(204).end();
+});
+
+// POST /api/org/:orgId/posts/:postId/reactions — toggle a reaction (add or remove)
+router.post('/:orgId/posts/:postId/reactions', async (req, res) => {
+  const { orgId, postId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { emoji } = req.body;
+  if (!emoji) return res.status(400).json({ error: 'emoji is required' });
+
+  const [[existing]] = await pool.query(
+    'SELECT id FROM org_post_reactions WHERE post_id = ? AND user_id = ? AND emoji = ?',
+    [postId, req.userId, emoji]
+  );
+  if (existing) {
+    await pool.query('DELETE FROM org_post_reactions WHERE id = ?', [existing.id]);
+  } else {
+    await pool.query('INSERT INTO org_post_reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, req.userId, emoji]);
+  }
+
+  // Return fresh reaction counts for this post
+  const [reactions] = await pool.query(
+    `SELECT emoji, COUNT(*) AS count, MAX(IF(user_id = ?, 1, 0)) AS reacted
+     FROM org_post_reactions WHERE post_id = ? GROUP BY emoji`,
+    [req.userId, postId]
+  );
+  res.json(reactions.map((r) => ({ emoji: r.emoji, count: Number(r.count), reacted: !!r.reacted })));
+});
+
+// GET /api/org/:orgId/posts/:postId/replies
+router.get('/:orgId/posts/:postId/replies', async (req, res) => {
+  const { orgId, postId } = req.params;
+  try {
+    const role = await getOrgRole(orgId, req.userId);
+    if (!role) return res.status(403).json({ error: 'Not a member' });
+
+    const [replies] = await pool.query(
+      `SELECT r.id, r.content, r.created_at, r.updated_at, u.id AS user_id, u.name, u.picture
+       FROM org_post_replies r JOIN users u ON u.id = r.user_id
+       WHERE r.post_id = ?
+       ORDER BY r.created_at ASC`,
+      [postId]
+    );
+
+    // Attach reaction counts per reply
+    if (replies.length > 0) {
+      const replyIds = replies.map((r) => r.id);
+      const [rxns] = await pool.query(
+        `SELECT reply_id, emoji, COUNT(*) AS count, MAX(IF(user_id = ?, 1, 0)) AS reacted
+         FROM org_reply_reactions WHERE reply_id IN (?) GROUP BY reply_id, emoji`,
+        [req.userId, replyIds]
+      );
+      const byReply = {};
+      rxns.forEach((r) => {
+        if (!byReply[r.reply_id]) byReply[r.reply_id] = [];
+        byReply[r.reply_id].push({ emoji: r.emoji, count: Number(r.count), reacted: !!r.reacted });
+      });
+      replies.forEach((r) => { r.reactions = byReply[r.id] || []; });
+    }
+
+    res.json(replies);
+  } catch (err) {
+    console.error('GET replies error:', err);
+    res.status(500).json({ error: 'Failed to load replies' });
+  }
+});
+
+// POST /api/org/:orgId/posts/:postId/replies
+router.post('/:orgId/posts/:postId/replies', async (req, res) => {
+  const { orgId, postId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+
+  const [[post]] = await pool.query('SELECT id FROM org_posts WHERE id = ? AND org_id = ?', [postId, orgId]);
+  if (!post) return res.status(404).json({ error: 'Post not found' });
+
+  const [result] = await pool.query(
+    'INSERT INTO org_post_replies (post_id, user_id, content) VALUES (?, ?, ?)',
+    [postId, req.userId, content.trim()]
+  );
+  const [[reply]] = await pool.query(
+    `SELECT r.id, r.content, r.created_at, u.id AS user_id, u.name, u.picture
+     FROM org_post_replies r JOIN users u ON u.id = r.user_id WHERE r.id = ?`,
+    [result.insertId]
+  );
+  res.status(201).json(reply);
+});
+
+// PATCH /api/org/:orgId/posts/:postId/replies/:replyId — author only
+router.patch('/:orgId/posts/:postId/replies/:replyId', async (req, res) => {
+  const { postId, replyId } = req.params;
+  const [[reply]] = await pool.query('SELECT user_id FROM org_post_replies WHERE id = ? AND post_id = ?', [replyId, postId]);
+  if (!reply) return res.status(404).json({ error: 'Reply not found' });
+  if (reply.user_id !== req.userId) return res.status(403).json({ error: 'Not authorized' });
+
+  const { content } = req.body;
+  if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+
+  await pool.query('UPDATE org_post_replies SET content = ? WHERE id = ?', [content.trim(), replyId]);
+  res.json({ success: true });
+});
+
+// DELETE /api/org/:orgId/posts/:postId/replies/:replyId
+router.delete('/:orgId/posts/:postId/replies/:replyId', async (req, res) => {
+  const { orgId, postId, replyId } = req.params;
+  const [[reply]] = await pool.query('SELECT user_id FROM org_post_replies WHERE id = ? AND post_id = ?', [replyId, postId]);
+  if (!reply) return res.status(404).json({ error: 'Reply not found' });
+
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const [[orgRole]] = await pool.query('SELECT is_admin FROM org_roles WHERE org_id = ? AND name = ?', [orgId, role]);
+  const isAdmin = role === 'org_admin' || !!orgRole?.is_admin;
+  if (reply.user_id !== req.userId && !isAdmin) return res.status(403).json({ error: 'Not authorized' });
+
+  await pool.query('DELETE FROM org_post_replies WHERE id = ?', [replyId]);
+  res.status(204).end();
+});
+
+// POST /api/org/:orgId/posts/:postId/replies/:replyId/reactions — toggle a reaction on a reply
+router.post('/:orgId/posts/:postId/replies/:replyId/reactions', async (req, res) => {
+  const { orgId, replyId } = req.params;
+  const role = await getOrgRole(orgId, req.userId);
+  if (!role) return res.status(403).json({ error: 'Not a member' });
+
+  const { emoji } = req.body;
+  if (!emoji) return res.status(400).json({ error: 'emoji is required' });
+
+  const [[existing]] = await pool.query(
+    'SELECT id FROM org_reply_reactions WHERE reply_id = ? AND user_id = ? AND emoji = ?',
+    [replyId, req.userId, emoji]
+  );
+  if (existing) {
+    await pool.query('DELETE FROM org_reply_reactions WHERE id = ?', [existing.id]);
+  } else {
+    await pool.query('INSERT INTO org_reply_reactions (reply_id, user_id, emoji) VALUES (?, ?, ?)', [replyId, req.userId, emoji]);
+  }
+
+  const [reactions] = await pool.query(
+    `SELECT emoji, COUNT(*) AS count, MAX(IF(user_id = ?, 1, 0)) AS reacted
+     FROM org_reply_reactions WHERE reply_id = ? GROUP BY emoji`,
+    [req.userId, replyId]
+  );
+  res.json(reactions.map((r) => ({ emoji: r.emoji, count: Number(r.count), reacted: !!r.reacted })));
+});
+
 export default router;

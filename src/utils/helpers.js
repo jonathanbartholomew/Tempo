@@ -92,6 +92,8 @@ export const DEFAULT_STATS = {
   aiPlanImports: 0,
   focusSessions: 0,
   history: {},
+  workDays: [1, 2, 3, 4, 5], // 0=Sun, 1=Mon … 6=Sat; default Mon–Fri
+  celebratedStreaks: [],     // milestone values already fired to avoid duplicate celebrations
 };
 
 export function generateId() {
@@ -127,6 +129,18 @@ export function getTimeInTimezone(date, timezone = DEFAULT_TIMEZONE) {
   const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
   const hour = lookup.hour === '24' ? '00' : lookup.hour;
   return `${hour}:${lookup.minute}`;
+}
+
+// Returns the most recent work day strictly before `date`.
+// Falls back to yesterday if workDays is empty.
+export function getLastWorkDay(date, workDays) {
+  const days = workDays && workDays.length ? workDays : [0, 1, 2, 3, 4, 5, 6];
+  const d = new Date(date);
+  for (let i = 0; i < 7; i++) {
+    d.setDate(d.getDate() - 1);
+    if (days.includes(d.getDay())) return d;
+  }
+  return d;
 }
 
 export function shiftDate(dateStr, days) {

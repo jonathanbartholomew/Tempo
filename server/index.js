@@ -260,6 +260,58 @@ pool.query(`
   )
 `).catch((err) => console.error('Failed to create assigned_tasks table:', err));
 
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    org_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_org_time (org_id, created_at)
+  )
+`).catch((err) => console.error('Failed to create org_posts table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_post_replies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_post (post_id)
+  )
+`).then(() =>
+  // Add updated_at to existing tables; ignore error 1060 = column already exists
+  pool.query(`ALTER TABLE org_post_replies ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`)
+    .catch((err) => { if (err.errno !== 1060) console.error('Failed to migrate org_post_replies:', err); })
+).catch((err) => console.error('Failed to create org_post_replies table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_post_reactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    emoji VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_reaction (post_id, user_id, emoji),
+    INDEX idx_post (post_id)
+  )
+`).catch((err) => console.error('Failed to create org_post_reactions table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS org_reply_reactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reply_id INT NOT NULL,
+    user_id INT NOT NULL,
+    emoji VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_reply_reaction (reply_id, user_id, emoji),
+    INDEX idx_reply (reply_id)
+  )
+`).catch((err) => console.error('Failed to create org_reply_reactions table:', err));
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 app.use('/api/auth', authLimiter, authRoutes);
